@@ -60,6 +60,14 @@ func (app *App) AddRoute(path, method string, handler fiber.Handler, model swagg
 	}
 }
 
+func (app *App) AddStaticRoute(root, path string, config ...fiber.Static) {
+	app.Fiber.Static(path, root, config...)
+}
+
+func (app *App) AddSwagger(path string) {
+	app.Fiber.Static(path, "./docs")
+}
+
 func (app *App) AddMiddleware(handler fiber.Handler) {
 	app.Fiber.Use(handler)
 }
