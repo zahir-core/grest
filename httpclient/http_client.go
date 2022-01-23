@@ -1,4 +1,4 @@
-package grest
+package httpclient
 
 import (
 	"bytes"

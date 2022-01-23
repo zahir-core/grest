@@ -27,6 +27,7 @@ var (
 	ErrPtUnpadded  = errors.New("plaintext is not a multiple of the block size")
 )
 
+// Configure(cryptoKey, cryptoSalt, cryptoInfo)
 func Configure(key string, additionalKey ...string) {
 	cryptoKey = key
 	if len(additionalKey) > 0 {
@@ -48,7 +49,7 @@ func Encrypt(text string) (string, error) {
 	// https://tools.ietf.org/html/rfc5246#section-6.2.3.2. Here we'll
 	// assume that the plaintext is already of the correct length.
 	plaintext := []byte(text)
-	plaintext = pkcs5{}.Padding(plaintext, aes.BlockSize)
+	plaintext = pkcs5{}.padding(plaintext, aes.BlockSize)
 	if len(plaintext)%aes.BlockSize != 0 {
 		return "", ErrPtUnpadded
 	}
@@ -102,7 +103,7 @@ func Decrypt(text string) (string, error) {
 	plaintext := make([]byte, len(ciphertext)-aes.BlockSize)
 	mode := cipher.NewCBCDecrypter(block, iv)
 	mode.CryptBlocks(plaintext, ct)
-	plaintext = pkcs5{}.Unpadding(plaintext)
+	plaintext = pkcs5{}.unpadding(plaintext)
 	return string(plaintext), nil
 }
 
@@ -126,13 +127,13 @@ func generateKey() ([]byte, error) {
 
 type pkcs5 struct{}
 
-func (p pkcs5) Padding(ciphertext []byte, blockSize int) []byte {
+func (p pkcs5) padding(ciphertext []byte, blockSize int) []byte {
 	padding := blockSize - len(ciphertext)%blockSize
 	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
 	return append(ciphertext, padtext...)
 }
 
-func (p pkcs5) Unpadding(encrypt []byte) []byte {
+func (p pkcs5) unpadding(encrypt []byte) []byte {
 	padding := encrypt[len(encrypt)-1]
 	return encrypt[:len(encrypt)-int(padding)]
 }
