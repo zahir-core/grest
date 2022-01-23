@@ -65,7 +65,7 @@ func (app *App) AddStaticRoute(root, path string, config ...fiber.Static) {
 }
 
 func (app *App) AddSwagger(path string) {
-	app.Fiber.Static(path, "./docs")
+	app.Fiber.Static(path, "./docs", fiber.Static{CacheDuration: -1})
 }
 
 func (app *App) AddMiddleware(handler fiber.Handler) {
