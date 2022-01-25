@@ -193,13 +193,13 @@ func (c *HttpClient) Send() (*http.Response, error) {
 	endTime := time.Now()
 	responseTime := endTime.Sub(startTime).Seconds()
 	if err != nil {
-		return nil, err
+		return res, err
 	}
 	defer res.Body.Close()
 
 	b, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, err
+		return res, err
 	}
 	c.BodyResponse = b
 	if c.IsDebug {
