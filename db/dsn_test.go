@@ -15,10 +15,10 @@ var testDSNs = []struct {
 	&Config{Driver: "mysql", Protocol: "unix", Host: "/path/to/socket", User: "username", Password: "password", DbName: "dbname", OtherParams: map[string]string{"param": "value"}},
 	"username:password@unix(/path/to/socket)/dbname?param=value&parseTime=true",
 }, {
-	&Config{Protocol: "unix", Host: "/tmp/mysql.sock", OtherParams: map[string]string{"arg": "/some/path.ext"}, TimeZone: time.UTC},
+	&Config{Driver: "mysql", Protocol: "unix", Host: "/tmp/mysql.sock", OtherParams: map[string]string{"arg": "/some/path.ext"}, TimeZone: time.UTC},
 	"unix(/tmp/mysql.sock)/?arg=%2Fsome%2Fpath.ext&loc=UTC&parseTime=true",
 }, {
-	&Config{User: "user", Password: "p@ss(word)", Protocol: "tcp", Host: "[de:ad:be:ef::ca:fe]", DbName: "dbname", TimeZone: time.Local},
+	&Config{Driver: "mysql", User: "user", Password: "p@ss(word)", Protocol: "tcp", Host: "[de:ad:be:ef::ca:fe]", DbName: "dbname", TimeZone: time.Local},
 	"user:p@ss(word)@tcp([de:ad:be:ef::ca:fe])/dbname?loc=Local&parseTime=true",
 },
 }

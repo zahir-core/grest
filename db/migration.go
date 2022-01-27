@@ -23,8 +23,12 @@ func RegisterTable(param interface{}) error {
 	if !ok {
 		return errors.New("RegisterTable: param has no method ConnName or TableName")
 	}
-	cfg, _ := dbMigration[t.ConnName()]
-	cfg[t.TableName()] = param
+	cfg, ok := dbMigration[t.ConnName()]
+	if ok {
+		cfg[t.TableName()] = param
+	} else {
+		cfg = map[string]interface{}{t.TableName(): param}
+	}
 
 	dbMigration[t.ConnName()] = cfg
 
@@ -33,35 +37,31 @@ func RegisterTable(param interface{}) error {
 
 func Migrate(connName string) error {
 	conn, ok := dbConn[connName]
-	if ok {
+	if !ok {
 		return errors.New("DB connection " + connName + " is not found")
 	}
 
-	db, err := DB(connName)
+	mt := conn.migrationTable
+	err := conn.db.AutoMigrate(&mt)
 	if err != nil {
 		return err
 	}
 
-	mt := conn.migrationTable
 	where := map[string]interface{}{
 		mt.KeyField(): mt.MigrationKey(),
 	}
 
 	migrationData := map[string]interface{}{}
-	db.Table(mt.TableName()).Select(mt.ValueField() + " as migration_key").Where(where).First(&migrationData)
+	conn.db.Table(mt.TableName()).Select(mt.ValueField() + " as value").Where(where).Take(&migrationData)
 
 	migrationMap := map[string]string{}
-	migrationJsonString, skOK := migrationData["migration_key"]
+	migrationJsonString, skOK := migrationData["value"]
 	if skOK {
 		json.Unmarshal([]byte(migrationJsonString.(string)), &migrationMap)
 	}
 
 	dm, dmOK := dbMigration[connName]
 	if dmOK {
-		migrationDb, err := DB(connName)
-		if err != nil {
-			return err
-		}
 		for tableName, tableStruct := range dm {
 			tableVersion := "init"
 			tv, tvOK := tableStruct.(interface {
@@ -78,7 +78,7 @@ func Migrate(connName string) error {
 			}
 
 			if tableVersion != existingTableVersion {
-				err := migrationDb.AutoMigrate(&tableStruct)
+				err := conn.db.AutoMigrate(&tableStruct)
 				if err != nil {
 					return err
 				}
@@ -88,11 +88,11 @@ func Migrate(connName string) error {
 		migrationJson, err := json.Marshal(migrationMap)
 		if err == nil {
 			if skOK {
-				db.Table(mt.TableName()).Where(where).Update(mt.ValueField(), string(migrationJson))
+				conn.db.Table(mt.TableName()).Where(where).Update(mt.ValueField(), string(migrationJson))
 			} else {
 				migrationData[mt.KeyField()] = mt.MigrationKey()
 				migrationData[mt.ValueField()] = string(migrationJson)
-				db.Table(mt.TableName()).Create(migrationData)
+				conn.db.Table(mt.TableName()).Create(migrationData)
 			}
 		}
 	}
