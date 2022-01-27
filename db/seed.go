@@ -9,7 +9,7 @@ import (
 
 var dbSeed = map[string]map[string]func(db *gorm.DB) error{}
 
-type SeedTabler interface {
+type SeedTable interface {
 	TableName() string
 	KeyField() string
 	ValueField() string
@@ -24,28 +24,17 @@ func RegisterSeed(connName, seedKey string, seedHandler func(db *gorm.DB) error)
 }
 
 func RunSeed(connName string) error {
-	dbConf, ok := dbConfig[connName]
+	conn, ok := dbConn[connName]
 	if ok {
-		return errors.New("DB config for " + connName + " is not found")
+		return errors.New("DB connection " + connName + " is not found")
 	}
 
-	seedTableConnName := connName
-	cn, cnOK := dbConf.SeedTable.(interface {
-		ConnName() string
-	})
-	if cnOK {
-		seedTableConnName = cn.ConnName()
-	}
-
-	db, err := DB(seedTableConnName)
+	db, err := DB(connName)
 	if err != nil {
 		return err
 	}
 
-	st, stOK := dbConf.SeedTable.(SeedTabler)
-	if !stOK {
-		return errors.New("SeedTable is not valid SeedTabler")
-	}
+	st := conn.seedTable
 	where := map[string]interface{}{
 		st.KeyField(): st.SeedKey(),
 	}

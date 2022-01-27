@@ -7,7 +7,7 @@ import (
 
 var dbMigration = map[string]map[string]interface{}{}
 
-type MigrationTabler interface {
+type MigrationTable interface {
 	TableName() string
 	KeyField() string
 	ValueField() string
@@ -32,28 +32,17 @@ func RegisterTable(param interface{}) error {
 }
 
 func Migrate(connName string) error {
-	dbConf, ok := dbConfig[connName]
+	conn, ok := dbConn[connName]
 	if ok {
-		return errors.New("DB config for " + connName + " is not found")
+		return errors.New("DB connection " + connName + " is not found")
 	}
 
-	migrationTableConnName := connName
-	cn, cnOK := dbConf.MigrationTable.(interface {
-		ConnName() string
-	})
-	if cnOK {
-		migrationTableConnName = cn.ConnName()
-	}
-
-	db, err := DB(migrationTableConnName)
+	db, err := DB(connName)
 	if err != nil {
 		return err
 	}
 
-	mt, mtOK := dbConf.MigrationTable.(MigrationTabler)
-	if !mtOK {
-		return errors.New("MigrationTable is not valid MigrationTabler")
-	}
+	mt := conn.migrationTable
 	where := map[string]interface{}{
 		mt.KeyField(): mt.MigrationKey(),
 	}

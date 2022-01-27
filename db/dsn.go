@@ -4,7 +4,26 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
+
+type Config struct {
+	Driver   string
+	Host     string
+	Port     int
+	User     string
+	Password string
+	DbName   string
+
+	Protocol     string
+	Charset      string
+	TimeZone     *time.Location // see https://pkg.go.dev/time#LoadLocation for details
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+	SslMode      string
+
+	OtherParams map[string]string
+}
 
 func (c *Config) DSN() string {
 	switch c.Driver {
