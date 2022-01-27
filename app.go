@@ -11,7 +11,7 @@ import (
 	"grest.dev/grest/swagger"
 )
 
-const Version = "0.0.1"
+const Version = "0.0.0"
 
 type App struct {
 	IsUseTLS              bool

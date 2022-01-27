@@ -14,28 +14,24 @@ type MigrationTable interface {
 	MigrationKey() string
 }
 
-func RegisterTable(param interface{}) error {
-	t, ok := param.(interface {
-		ConnName() string
-		TableName() string
-		TableVersion() string
-	})
+func RegisterTable(connName string, tableStruct interface{}) error {
+	t, ok := tableStruct.(interface{ TableName() string })
 	if !ok {
-		return errors.New("RegisterTable: param has no method ConnName or TableName")
+		return errors.New("RegisterTable: tableStruct has no method TableName")
 	}
-	cfg, ok := dbMigration[t.ConnName()]
+	cfg, ok := dbMigration[connName]
 	if ok {
-		cfg[t.TableName()] = param
+		cfg[t.TableName()] = tableStruct
 	} else {
-		cfg = map[string]interface{}{t.TableName(): param}
+		cfg = map[string]interface{}{t.TableName(): tableStruct}
 	}
 
-	dbMigration[t.ConnName()] = cfg
+	dbMigration[connName] = cfg
 
 	return nil
 }
 
-func Migrate(connName string) error {
+func Migrate(connName string, migrationKey ...string) error {
 	conn, ok := dbConn[connName]
 	if !ok {
 		return errors.New("DB connection " + connName + " is not found")
@@ -60,7 +56,11 @@ func Migrate(connName string) error {
 		json.Unmarshal([]byte(migrationJsonString.(string)), &migrationMap)
 	}
 
-	dm, dmOK := dbMigration[connName]
+	mKey := connName
+	if len(migrationKey) > 0 {
+		mKey = migrationKey[0]
+	}
+	dm, dmOK := dbMigration[mKey]
 	if dmOK {
 		for tableName, tableStruct := range dm {
 			tableVersion := "init"
