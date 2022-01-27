@@ -40,7 +40,7 @@ func (c *Config) DSN() string {
 	case "sqlite":
 		return c.SqliteDSN()
 	default:
-		return c.MySqlDSN()
+		return c.PostgreSqlDSN()
 	}
 }
 
