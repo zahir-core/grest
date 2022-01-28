@@ -217,3 +217,12 @@ func (j *JSON) Scan(value interface{}) error {
 
 	return nil
 }
+
+type UUID struct {
+	sql.NullString
+}
+
+// GormDataType returns gorm common data type. This type is used for the field's column type.
+func (UUID) GormDataType() string {
+	return "char(36)"
+}
