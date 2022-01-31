@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -14,10 +15,30 @@ import (
 
 var nullBytes = []byte("null")
 
+// NullBool is a nullable bool.
+// It will marshal to null if null, not false.
+// It will unmarshal to true if input value is true, "true", "True", "TRUE", "t", "T", 1, or "1"
+// It will unmarshal to false if input value is false, "false", "False", "FALSE", "f", "F", 0, or "0"
+// Other input value will be considered null, not false and not error.
+// It supports SQL and JSON serialization.
 type NullBool struct {
 	sql.NullBool
 }
 
+// MarshalText implements encoding.TextMarshaler.
+// It will encode blank if this NullBool is null, not false.
+func (n NullBool) MarshalText() ([]byte, error) {
+	if !n.Valid {
+		return []byte{}, nil
+	}
+	if !n.Bool {
+		return []byte("false"), nil
+	}
+	return []byte("true"), nil
+}
+
+// MarshalJSON implements json.Marshaler.
+// It will encode null if this Bool is null, not false.
 func (n NullBool) MarshalJSON() ([]byte, error) {
 	if !n.Valid {
 		return nullBytes, nil
@@ -25,24 +46,82 @@ func (n NullBool) MarshalJSON() ([]byte, error) {
 	return json.Marshal(n.Bool)
 }
 
+// UnmarshalText implements encoding.TextUnmarshaler.
+// It will unmarshal to true if input value is true, "true", "True", "TRUE", "t", "T", 1, or "1"
+// It will unmarshal to false if input value is false, "false", "False", "FALSE", "f", "F", 0, or "0"
+// Other input value will be considered null, not false.
+func (n *NullBool) UnmarshalText(text []byte) error {
+	str := string(text)
+	switch str {
+	case "1", "t", "T", "true", "TRUE", "True":
+		n.Bool = true
+	case "0", "f", "F", "false", "FALSE", "False":
+		n.Bool = false
+	default:
+		n.Valid = false
+		return nil
+	}
+	n.Valid = true
+	return nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+// It will unmarshal to true if input value is true, "true", "True", "TRUE", "t", "T", 1, or "1"
+// It will unmarshal to false if input value is false, "false", "False", "FALSE", "f", "F", 0, or "0"
+// Other input value will be considered null, not false and not error.
 func (n *NullBool) UnmarshalJSON(data []byte) error {
 	if bytes.Equal(data, nullBytes) {
 		n.Valid = false
 		return nil
 	}
-
-	if err := json.Unmarshal(data, &n.Bool); err != nil {
-		return fmt.Errorf("couldn't unmarshal JSON: %w", err)
+	if err := json.Unmarshal(data, &n.Bool); err == nil {
+		n.Valid = true
+	} else {
+		var str string
+		if err := json.Unmarshal(data, &str); err == nil {
+			n.Bool, err = strconv.ParseBool(str)
+			if err == nil {
+				n.Valid = true
+			}
+		} else {
+			var integer int
+			if err := json.Unmarshal(data, &integer); err == nil {
+				if integer == 1 {
+					n.Bool = true
+				}
+				if integer == 0 || integer == 1 {
+					n.Valid = true
+				}
+			}
+		}
 	}
-
-	n.Valid = true
 	return nil
 }
 
+// IsZero returns true for invalid bool, for omitempty support
+func (n NullBool) IsZero() bool {
+	return !n.Valid
+}
+
+// NullInt64 is a nullable int64.
+// It supports integer number and a string that can be converted to a integer number.
+// Other input value will be considered null, not 0 and not error.
+// It supports SQL and JSON serialization.
 type NullInt64 struct {
 	sql.NullInt64
 }
 
+// MarshalText implements encoding.TextMarshaler.
+// It will encode a blank string if this NullInt64 is null.
+func (n NullInt64) MarshalText() ([]byte, error) {
+	if !n.Valid {
+		return []byte{}, nil
+	}
+	return []byte(strconv.FormatInt(n.Int64, 10)), nil
+}
+
+// MarshalJSON implements json.Marshaler.
+// It will encode null if this NullInt64 is null.
 func (n NullInt64) MarshalJSON() ([]byte, error) {
 	if !n.Valid {
 		return nullBytes, nil
@@ -50,24 +129,67 @@ func (n NullInt64) MarshalJSON() ([]byte, error) {
 	return json.Marshal(n.Int64)
 }
 
-func (n *NullInt64) UnmarshalJSON(data []byte) error {
-	if bytes.Equal(data, nullBytes) {
-		n.Valid = false
+// UnmarshalText implements encoding.TextUnmarshaler.
+// It supports integer number and a string that can be converted to a integer number.
+// Other input value will be considered null, not 0 and not error.
+func (n *NullInt64) UnmarshalText(text []byte) error {
+	str := string(text)
+	if str == "" || str == "null" {
 		return nil
 	}
-
-	if err := json.Unmarshal(data, &n.Int64); err != nil {
-		return fmt.Errorf("couldn't unmarshal JSON: %w", err)
+	var err error
+	n.Int64, err = strconv.ParseInt(str, 10, 64)
+	if err == nil {
+		n.Valid = true
 	}
-
-	n.Valid = true
 	return nil
 }
 
+// UnmarshalJSON implements json.Unmarshaler.
+// It supports integer number and a string that can be converted to a integer number.
+// Other input value will be considered null, not 0 and not error.
+func (n *NullInt64) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(data, nullBytes) {
+		return nil
+	}
+	if err := json.Unmarshal(data, &n.Int64); err == nil {
+		n.Valid = true
+	} else {
+		var str string
+		if err := json.Unmarshal(data, &str); err == nil {
+			n.Int64, err = strconv.ParseInt(str, 10, 64)
+			if err == nil {
+				n.Valid = true
+			}
+		}
+	}
+	return nil
+}
+
+// IsZero returns true for invalid int64, for omitempty support
+func (n NullInt64) IsZero() bool {
+	return !n.Valid
+}
+
+// NullFloat64 is a nullable float64.
+// It supports number and a string that can be converted to a number.
+// Other input value will be considered null, not 0 and not error.
+// It supports SQL and JSON serialization.
 type NullFloat64 struct {
 	sql.NullFloat64
 }
 
+// MarshalText implements encoding.TextMarshaler.
+// It will encode a blank string if this NullFloat64 is null.
+func (n NullFloat64) MarshalText() ([]byte, error) {
+	if !n.Valid {
+		return []byte{}, nil
+	}
+	return []byte(strconv.FormatFloat(n.Float64, 'f', -1, 64)), nil
+}
+
+// MarshalJSON implements json.Marshaler.
+// It will encode null if this NullFloat64 is null.
 func (n NullFloat64) MarshalJSON() ([]byte, error) {
 	if !n.Valid {
 		return nullBytes, nil
@@ -75,24 +197,65 @@ func (n NullFloat64) MarshalJSON() ([]byte, error) {
 	return json.Marshal(n.Float64)
 }
 
-func (n *NullFloat64) UnmarshalJSON(data []byte) error {
-	if bytes.Equal(data, nullBytes) {
-		n.Valid = false
+// UnmarshalText implements encoding.TextUnmarshaler.
+// It supports number and a string that can be converted to a number.
+// Other input value will be considered null, not 0 and not error.
+func (n *NullFloat64) UnmarshalText(text []byte) error {
+	str := string(text)
+	if str == "" || str == "null" {
 		return nil
 	}
-
-	if err := json.Unmarshal(data, &n.Float64); err != nil {
-		return fmt.Errorf("couldn't unmarshal JSON: %w", err)
+	var err error
+	n.Float64, err = strconv.ParseFloat(str, 64)
+	if err == nil {
+		n.Valid = true
 	}
-
-	n.Valid = true
 	return nil
 }
 
+// UnmarshalJSON implements json.Unmarshaler.
+// It supports number and a string that can be converted to a number.
+// Other input value will be considered null, not 0 and not error.
+func (n *NullFloat64) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(data, nullBytes) {
+		return nil
+	}
+	if err := json.Unmarshal(data, &n.Float64); err == nil {
+		n.Valid = true
+	} else {
+		var str string
+		if err := json.Unmarshal(data, &str); err == nil {
+			n.Float64, err = strconv.ParseFloat(str, 64)
+			if err == nil {
+				n.Valid = true
+			}
+		}
+	}
+	return nil
+}
+
+// IsZero returns true for invalid float64, for omitempty support
+func (n NullFloat64) IsZero() bool {
+	return !n.Valid
+}
+
+// NullString is a nullable string.
+// It supports SQL and JSON serialization.
 type NullString struct {
 	sql.NullString
 }
 
+// MarshalText implements encoding.TextMarshaler.
+// It will encode a blank string if this NullString is null.
+func (n NullString) MarshalText() ([]byte, error) {
+	if !n.Valid {
+		return []byte{}, nil
+	}
+	return []byte(n.String), nil
+}
+
+// MarshalJSON implements json.Marshaler.
+// It will encode null if this NullString is null.
 func (n NullString) MarshalJSON() ([]byte, error) {
 	if !n.Valid {
 		return nullBytes, nil
@@ -100,24 +263,41 @@ func (n NullString) MarshalJSON() ([]byte, error) {
 	return json.Marshal(n.String)
 }
 
-func (n *NullString) UnmarshalJSON(data []byte) error {
-	if bytes.Equal(data, nullBytes) {
-		n.Valid = false
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (n *NullString) UnmarshalText(text []byte) error {
+	str := string(text)
+	if str == "null" {
 		return nil
 	}
-
-	if err := json.Unmarshal(data, &n.String); err != nil {
-		return fmt.Errorf("couldn't unmarshal JSON: %w", err)
-	}
-
+	n.String = str
 	n.Valid = true
 	return nil
 }
 
+// UnmarshalJSON implements json.Unmarshaler.
+func (n *NullString) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(data, nullBytes) {
+		return nil
+	}
+	if err := json.Unmarshal(data, &n.String); err == nil {
+		n.Valid = true
+	}
+	return nil
+}
+
+// IsZero returns true for invalid string, for omitempty support
+func (n NullString) IsZero() bool {
+	return !n.Valid
+}
+
+// NullDateTime is a nullable time.Time.
+// It supports SQL and JSON serialization.
 type NullDateTime struct {
 	sql.NullTime
 }
 
+// MarshalJSON implements json.Marshaler.
+// It will encode null if this NullDateTime is null.
 func (n NullDateTime) MarshalJSON() ([]byte, error) {
 	if !n.Valid {
 		return nullBytes, nil
@@ -125,22 +305,51 @@ func (n NullDateTime) MarshalJSON() ([]byte, error) {
 	return json.Marshal(n.Time)
 }
 
+// UnmarshalJSON implements json.Unmarshaler.
+// It supports a string that can be parsed to a time.Time.
+// Other input value will be considered null, not error.
 func (n *NullDateTime) UnmarshalJSON(data []byte) error {
 	if bytes.Equal(data, nullBytes) {
 		n.Valid = false
 		return nil
 	}
-
-	if err := json.Unmarshal(data, &n.Time); err != nil {
-		return fmt.Errorf("couldn't unmarshal JSON: %w", err)
+	if err := json.Unmarshal(data, &n.Time); err == nil {
+		n.Valid = true
 	}
-
-	n.Valid = true
 	return nil
 }
 
+// IsZero returns true for zero time, for omitempty support
+func (n NullDateTime) IsZero() bool {
+	return n.Time.IsZero()
+}
+
+// NullDate is a nullable date.
+// It supports SQL and JSON serialization.
 type NullDate struct {
 	NullString
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+// It supports a string that can be parsed to a time.Time.
+// Other input value will be considered null, not error.
+func (n *NullDate) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(data, nullBytes) {
+		n.Valid = false
+		return nil
+	}
+	if err := json.Unmarshal(data, &n.String); err == nil {
+		_, err := time.Parse("2006-01-02", n.String)
+		if err == nil {
+			n.Valid = true
+		}
+	}
+	return nil
+}
+
+// IsZero returns true for zero time, for omitempty support
+func (n NullDate) IsZero() bool {
+	return !n.Valid
 }
 
 // GormDataType returns gorm common data type. This type is used for the field's column type.
@@ -187,8 +396,32 @@ func (d *NullDate) Scan(value interface{}) error {
 	return nil
 }
 
+// NullDate is a nullable date.
+// It supports SQL and JSON serialization.
 type NullTime struct {
 	NullString
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+// It supports a string that can be parsed to a time.Time.
+// Other input value will be considered null, not error.
+func (n *NullTime) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(data, nullBytes) {
+		n.Valid = false
+		return nil
+	}
+	if err := json.Unmarshal(data, &n.String); err == nil {
+		_, err := time.Parse("15:04:05", n.String)
+		if err == nil {
+			n.Valid = true
+		}
+	}
+	return nil
+}
+
+// IsZero returns true for zero time, for omitempty support
+func (n NullTime) IsZero() bool {
+	return !n.Valid
 }
 
 // GormDataType returns gorm common data type. This type is used for the field's column type.
