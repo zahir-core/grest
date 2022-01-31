@@ -1,7 +1,9 @@
 package db
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -10,37 +12,144 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-type Bool struct {
+var nullBytes = []byte("null")
+
+type NullBool struct {
 	sql.NullBool
 }
 
-type Int64 struct {
+func (n NullBool) MarshalJSON() ([]byte, error) {
+	if !n.Valid {
+		return nullBytes, nil
+	}
+	return json.Marshal(n.Bool)
+}
+
+func (n *NullBool) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(data, nullBytes) {
+		n.Valid = false
+		return nil
+	}
+
+	if err := json.Unmarshal(data, &n.Bool); err != nil {
+		return fmt.Errorf("couldn't unmarshal JSON: %w", err)
+	}
+
+	n.Valid = true
+	return nil
+}
+
+type NullInt64 struct {
 	sql.NullInt64
 }
 
-type Float64 struct {
+func (n NullInt64) MarshalJSON() ([]byte, error) {
+	if !n.Valid {
+		return nullBytes, nil
+	}
+	return json.Marshal(n.Int64)
+}
+
+func (n *NullInt64) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(data, nullBytes) {
+		n.Valid = false
+		return nil
+	}
+
+	if err := json.Unmarshal(data, &n.Int64); err != nil {
+		return fmt.Errorf("couldn't unmarshal JSON: %w", err)
+	}
+
+	n.Valid = true
+	return nil
+}
+
+type NullFloat64 struct {
 	sql.NullFloat64
 }
 
-type String struct {
+func (n NullFloat64) MarshalJSON() ([]byte, error) {
+	if !n.Valid {
+		return nullBytes, nil
+	}
+	return json.Marshal(n.Float64)
+}
+
+func (n *NullFloat64) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(data, nullBytes) {
+		n.Valid = false
+		return nil
+	}
+
+	if err := json.Unmarshal(data, &n.Float64); err != nil {
+		return fmt.Errorf("couldn't unmarshal JSON: %w", err)
+	}
+
+	n.Valid = true
+	return nil
+}
+
+type NullString struct {
 	sql.NullString
 }
 
-type DateTime struct {
+func (n NullString) MarshalJSON() ([]byte, error) {
+	if !n.Valid {
+		return nullBytes, nil
+	}
+	return json.Marshal(n.String)
+}
+
+func (n *NullString) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(data, nullBytes) {
+		n.Valid = false
+		return nil
+	}
+
+	if err := json.Unmarshal(data, &n.String); err != nil {
+		return fmt.Errorf("couldn't unmarshal JSON: %w", err)
+	}
+
+	n.Valid = true
+	return nil
+}
+
+type NullDateTime struct {
 	sql.NullTime
 }
 
-type Date struct {
-	sql.NullString
+func (n NullDateTime) MarshalJSON() ([]byte, error) {
+	if !n.Valid {
+		return nullBytes, nil
+	}
+	return json.Marshal(n.Time)
+}
+
+func (n *NullDateTime) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(data, nullBytes) {
+		n.Valid = false
+		return nil
+	}
+
+	if err := json.Unmarshal(data, &n.Time); err != nil {
+		return fmt.Errorf("couldn't unmarshal JSON: %w", err)
+	}
+
+	n.Valid = true
+	return nil
+}
+
+type NullDate struct {
+	NullString
 }
 
 // GormDataType returns gorm common data type. This type is used for the field's column type.
-func (Date) GormDataType() string {
+func (NullDate) GormDataType() string {
 	return "date"
 }
 
 // GormDBDataType returns gorm DB data type based on the current using database.
-func (Date) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+func (NullDate) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	switch db.Dialector.Name() {
 	case "sqlite":
 		return "TEXT"
@@ -58,7 +167,7 @@ func (Date) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 }
 
 // Scan implements sql.Scanner interface and scans value into Date
-func (d *Date) Scan(value interface{}) error {
+func (d *NullDate) Scan(value interface{}) error {
 	if value == nil {
 		d.String, d.Valid = "", false
 		return nil
@@ -78,17 +187,17 @@ func (d *Date) Scan(value interface{}) error {
 	return nil
 }
 
-type Time struct {
-	sql.NullString
+type NullTime struct {
+	NullString
 }
 
 // GormDataType returns gorm common data type. This type is used for the field's column type.
-func (Time) GormDataType() string {
+func (NullTime) GormDataType() string {
 	return "time"
 }
 
 // GormDBDataType returns gorm DB data type based on the current using database.
-func (Time) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+func (NullTime) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	switch db.Dialector.Name() {
 	case "sqlite":
 		return "TEXT"
@@ -106,7 +215,7 @@ func (Time) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 }
 
 // Scan implements sql.Scanner interface and scans value into Time
-func (t *Time) Scan(value interface{}) error {
+func (t *NullTime) Scan(value interface{}) error {
 	if value == nil {
 		t.String, t.Valid = "", false
 		return nil
@@ -126,17 +235,17 @@ func (t *Time) Scan(value interface{}) error {
 	return nil
 }
 
-type Text struct {
-	sql.NullString
+type NullText struct {
+	NullString
 }
 
 // GormDataType returns gorm common data type. This type is used for the field's column type.
-func (Text) GormDataType() string {
+func (NullText) GormDataType() string {
 	return "text"
 }
 
 // GormDBDataType returns gorm DB data type based on the current using database.
-func (Text) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+func (NullText) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	switch db.Dialector.Name() {
 	case "sqlite":
 		return "TEXT"
@@ -153,36 +262,17 @@ func (Text) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	}
 }
 
-// Scan implements sql.Scanner interface and scans value into Text
-func (t *Text) Scan(value interface{}) error {
-	if value == nil {
-		t.String, t.Valid = "", false
-		return nil
-	}
-
-	switch v := value.(type) {
-	case []byte:
-		t.String, t.Valid = string(v), true
-	case string:
-		t.String, t.Valid = v, true
-	default:
-		return errors.New(fmt.Sprintf("failed to scan value: %v", v))
-	}
-
-	return nil
-}
-
-type JSON struct {
-	sql.NullString
+type NullJSON struct {
+	NullString
 }
 
 // GormDataType returns gorm common data type. This type is used for the field's column type.
-func (JSON) GormDataType() string {
+func (NullJSON) GormDataType() string {
 	return "json"
 }
 
 // GormDBDataType returns gorm DB data type based on the current using database.
-func (JSON) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+func (NullJSON) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	switch db.Dialector.Name() {
 	case "sqlite":
 		return "JSON"
@@ -199,30 +289,11 @@ func (JSON) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	}
 }
 
-// Scan implements sql.Scanner interface and scans value into JSON
-func (j *JSON) Scan(value interface{}) error {
-	if value == nil {
-		j.String, j.Valid = "", false
-		return nil
-	}
-
-	switch v := value.(type) {
-	case []byte:
-		j.String, j.Valid = string(v), true
-	case string:
-		j.String, j.Valid = v, true
-	default:
-		return errors.New(fmt.Sprintf("failed to scan value: %v", v))
-	}
-
-	return nil
-}
-
-type UUID struct {
-	sql.NullString
+type NullUUID struct {
+	NullString
 }
 
 // GormDataType returns gorm common data type. This type is used for the field's column type.
-func (UUID) GormDataType() string {
+func (NullUUID) GormDataType() string {
 	return "char(36)"
 }

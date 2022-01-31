@@ -10,7 +10,7 @@ type Schema interface {
 	SetSort()
 }
 
-// grest:
+// json:
 // - dot notation field to be parsed to multi-dimensional json object
 //
 // db:
@@ -43,9 +43,9 @@ type Schema interface {
 // - used as "example" on OpenAPI Specification
 //
 type Model struct {
-	Relation []Relation `grest:"-" gorm:"-" json:"-"`
-	Filter   []Filter   `grest:"-" gorm:"-" json:"-"`
-	Sort     []Sort     `grest:"-" gorm:"-" json:"-"`
+	Relation []Relation `json:"-" gorm:"-"`
+	Filter   []Filter   `json:"-" gorm:"-"`
+	Sort     []Sort     `json:"-" gorm:"-"`
 }
 
 type Relation struct {
