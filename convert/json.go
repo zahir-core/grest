@@ -2,48 +2,74 @@ package convert
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"reflect"
-	"regexp"
 	"strings"
 
 	"github.com/tidwall/gjson"
 )
 
-func ToCamelCase(str string, d ...string) string {
-	delimiter := "_"
-	if len(d) > 0 {
-		delimiter = d[0]
-	}
-	link := regexp.MustCompile("(^[A-Za-z])|" + delimiter + "([A-Za-z])")
-	return link.ReplaceAllStringFunc(str, func(s string) string {
-		return strings.ToUpper(strings.Replace(s, delimiter, "", -1))
-	})
+type jsonData struct {
+	data interface{}
+	err  error
 }
 
-func ToSnakeCase(str string, d ...string) string {
-	delimiter := "_"
-	if len(d) > 0 {
-		delimiter = d[0]
-	}
-	matchFirstCap := regexp.MustCompile("(.)([A-Z][a-z]+)")
-	matchAllCap := regexp.MustCompile("([a-z0-9])([A-Z])")
-	snake := matchFirstCap.ReplaceAllString(str, "${1}"+delimiter+"${2}")
-	snake = matchAllCap.ReplaceAllString(snake, "${1}"+delimiter+"${2}")
-	return strings.ToLower(snake)
+func NewFlatJSON(data []byte, v interface{}) jsonData {
+	return jsonData{}
 }
 
-func ToFlatJSON(m interface{}, b []byte) ([]byte, error) {
-	t := reflect.TypeOf(m)
+func NewStructuredJSON(data []byte, v interface{}) jsonData {
+	return jsonData{}
+}
+
+func (d jsonData) Marshal() ([]byte, error) {
+	if d.err != nil {
+		return []byte{}, d.err
+	}
+	return json.Marshal(d.data)
+}
+
+func (d jsonData) MarshalXml() ([]byte, error) {
+	if d.err != nil {
+		return []byte{}, d.err
+	}
+	return xml.Marshal(d.data)
+}
+
+func (d jsonData) Unmarshal(v interface{}) error {
+	if d.err != nil {
+		return d.err
+	}
+	b, err := d.Marshal()
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, v)
+}
+
+func (d jsonData) UnmarshalXml(v interface{}) error {
+	if d.err != nil {
+		return d.err
+	}
+	b, err := d.MarshalXml()
+	if err != nil {
+		return err
+	}
+	return xml.Unmarshal(b, v)
+}
+
+func ToFlatJSON(v interface{}, data []byte) ([]byte, error) {
+	t := reflect.TypeOf(v)
 	if t.Kind() == reflect.Ptr {
-		t = reflect.ValueOf(m).Elem().Type()
+		t = reflect.ValueOf(v).Elem().Type()
 	}
 	if t.Kind() == reflect.Struct {
-		return flatJsonFromStruct(t, b)
+		return flatJsonFromStruct(t, data)
 	} else if t.Kind() == reflect.Slice {
 		slcType := t.Elem()
 		if slcType.Kind() == reflect.Struct {
 			slc := []interface{}{}
-			gjson.ParseBytes(b).ForEach(func(key gjson.Result, value gjson.Result) bool {
+			gjson.ParseBytes(data).ForEach(func(key gjson.Result, value gjson.Result) bool {
 				var slcVal interface{}
 				slcByte, err := flatJsonFromStruct(slcType, []byte(value.String()))
 				if err == nil {
@@ -58,10 +84,10 @@ func ToFlatJSON(m interface{}, b []byte) ([]byte, error) {
 		}
 	}
 
-	return b, nil
+	return data, nil
 }
 
-func flatJsonFromStruct(t reflect.Type, b []byte) ([]byte, error) {
+func flatJsonFromStruct(t reflect.Type, data []byte) ([]byte, error) {
 	flatMap := map[string]interface{}{}
 	for i := 0; i < t.NumField(); i++ {
 		hasTag := true
@@ -72,7 +98,7 @@ func flatJsonFromStruct(t reflect.Type, b []byte) ([]byte, error) {
 		}
 
 		jsonPath := strings.Split(key, ",")
-		result := gjson.GetBytes(b, jsonPath[0])
+		result := gjson.GetBytes(data, jsonPath[0])
 		flatKey := jsonPath[0]
 		if !hasTag {
 			flatKey = t.Field(i).Name
