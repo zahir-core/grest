@@ -14,11 +14,22 @@ type jsonData struct {
 	err  error
 }
 
-func NewFlatJSON(data []byte, v interface{}) jsonData {
-	return jsonData{}
+// ToFlatJSON convert from structured json byte or struct or slice of struct to dot notation key flat map
+// if "data" and "v" is not nil and "v" is valid struct or slice of struct, flat map is converted from "data" based on "v"
+// if "data" is not nil and "v" is nil or not valid struct or slice of struct, flat map is converted from "data" based on "data"
+// if "data" is nil and "v" is not nil and "v" is valid struct or slice of struct, flat map is converted from "v" based on "v"
+func ToFlatJSON(data []byte, v interface{}) jsonData {
+	if data != nil {
+		return flatFromStructuredJSONByte(data, v)
+	}
+	return newFlatFromStruct(v)
 }
 
-func NewStructuredJSON(data []byte, v interface{}) jsonData {
+// ToStructuredJSON convert from flat json byte or struct or slice of struct to structured map based on dot notation key
+// if "data" and "v" is not nil and "v" is valid struct or slice of struct, structured map is converted from "data" based on "v"
+// if "data" is not nil and "v" is nil or not valid struct or slice of struct, structured map is converted from "data" based on "data"
+// if "data" is nil and "v" is not nil and "v" is valid struct or slice of struct, structured map is converted from "v" based on "v"
+func ToStructuredJSON(data []byte, v interface{}) jsonData {
 	return jsonData{}
 }
 
@@ -58,36 +69,60 @@ func (d jsonData) UnmarshalXml(v interface{}) error {
 	return xml.Unmarshal(b, v)
 }
 
-func ToFlatJSON(v interface{}, data []byte) ([]byte, error) {
-	t := reflect.TypeOf(v)
-	if t.Kind() == reflect.Ptr {
-		t = reflect.ValueOf(v).Elem().Type()
-	}
-	if t.Kind() == reflect.Struct {
-		return flatJsonFromStruct(t, data)
-	} else if t.Kind() == reflect.Slice {
-		slcType := t.Elem()
-		if slcType.Kind() == reflect.Struct {
+// flatFromStructuredJSONByte convert from structured json byte to dot notation key flat map
+// if "data" and "v" is not nil and "v" is valid struct or slice of struct, flat map is converted from "data" based on "v"
+// if "data" is not nil and "v" is nil or not valid struct or slice of struct, flat map is converted from "data" based on "data"
+func flatFromStructuredJSONByte(data []byte, v interface{}) jsonData {
+	if v != nil {
+		t := reflect.TypeOf(v)
+		if t.Kind() == reflect.Ptr {
+			t = reflect.ValueOf(v).Elem().Type()
+		}
+		if t.Kind() == reflect.Struct {
+			return jsonData{data: flatMapFromStructuredJSONObjectBasedOnStructType(data, t)}
+		} else if t.Kind() == reflect.Slice {
 			slc := []interface{}{}
+			slcType := t.Elem()
 			gjson.ParseBytes(data).ForEach(func(key gjson.Result, value gjson.Result) bool {
-				var slcVal interface{}
-				slcByte, err := flatJsonFromStruct(slcType, []byte(value.String()))
-				if err == nil {
-					err = json.Unmarshal(slcByte, &slcVal)
-					if err == nil {
-						slc = append(slc, slcVal)
-					}
+				if slcType.Kind() == reflect.Struct {
+					slc = append(slc, flatMapFromStructuredJSONObjectBasedOnStructType([]byte(value.String()), slcType))
+				} else {
+					slc = append(slc, value.Value())
 				}
 				return true
 			})
-			return json.Marshal(slc)
+			return jsonData{data: slc}
 		}
 	}
 
-	return data, nil
+	var tempData interface{}
+	err := json.Unmarshal(data, &tempData)
+	if err != nil {
+		return jsonData{err: err}
+	}
+
+	m, isMap := tempData.(map[string]interface{})
+	if isMap {
+		return jsonData{data: flatMapFromStructuredMap(m)}
+	}
+	slc, isSlice := tempData.([]interface{})
+	if isSlice {
+		newSlice := []interface{}{}
+		for i, s := range slc {
+			m, isMap := s.(map[string]interface{})
+			if isMap {
+				newSlice[i] = jsonData{data: flatMapFromStructuredMap(m)}
+			} else {
+				newSlice[i] = s
+			}
+		}
+		return jsonData{data: newSlice}
+	}
+
+	return jsonData{data: tempData}
 }
 
-func flatJsonFromStruct(t reflect.Type, data []byte) ([]byte, error) {
+func flatMapFromStructuredJSONObjectBasedOnStructType(data []byte, t reflect.Type) map[string]interface{} {
 	flatMap := map[string]interface{}{}
 	for i := 0; i < t.NumField(); i++ {
 		hasTag := true
@@ -120,14 +155,7 @@ func flatJsonFromStruct(t reflect.Type, data []byte) ([]byte, error) {
 				if slcType.Kind() != reflect.Struct {
 					slc = append(slc, value.Value())
 				} else {
-					var slcVal interface{}
-					slcByte, err := flatJsonFromStruct(slcType, []byte(value.String()))
-					if err == nil {
-						err = json.Unmarshal(slcByte, &slcVal)
-						if err == nil {
-							slc = append(slc, slcVal)
-						}
-					}
+					slc = append(slc, flatMapFromStructuredJSONObjectBasedOnStructType([]byte(value.String()), slcType))
 				}
 				return true
 			})
@@ -136,5 +164,21 @@ func flatJsonFromStruct(t reflect.Type, data []byte) ([]byte, error) {
 			flatMap[flatKey] = result.Value()
 		}
 	}
-	return json.Marshal(flatMap)
+	return flatMap
+}
+
+func flatMapFromStructuredMap(m map[string]interface{}) map[string]interface{} {
+	return m
+}
+
+func newFlatFromStruct(v interface{}) jsonData {
+	return jsonData{}
+}
+
+func newStructuredFromFlatJSON(data []byte, v interface{}) jsonData {
+	return jsonData{}
+}
+
+func newStructuredFromStruct(v interface{}) jsonData {
+	return jsonData{}
 }
