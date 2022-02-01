@@ -62,7 +62,11 @@ func Set(key string, val interface{}, e ...time.Duration) error {
 	if isUseRedis {
 		return rdb.Set(bgCtx, key, string(value), expiration).Err()
 	} else {
-		cache[key] = string(value)
+		if cache != nil {
+			cache[key] = string(value)
+		} else {
+			cache = map[string]string{key: string(value)}
+		}
 	}
 	return nil
 }

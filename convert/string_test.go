@@ -4,30 +4,114 @@ import (
 	"testing"
 )
 
-func TestConvertToCamelCase(t *testing.T) {
-	snake, expected_from_snake := "snake_to_camel", "SnakeToCamel"
-	snake_ret := ToCamelCase(snake)
-	if snake_ret != expected_from_snake {
-		t.Errorf("Expected camel from snake case [%v], got [%v]", expected_from_snake, snake_ret)
-	}
+type strCase struct {
+	camelCase, snakeCase, spinalCase string
+}
 
-	spinal, expected_from_spinal := "spinal-to-camel", "SpinalToCamel"
-	spinal_ret := ToCamelCase(spinal, "-")
-	if spinal_ret != expected_from_spinal {
-		t.Errorf("Expected camel from spinal case [%v], got [%v]", expected_from_spinal, spinal_ret)
+func newStringTestData() []strCase {
+	sc := []strCase{}
+	sc = append(sc, strCase{camelCase: "CamelCase", snakeCase: "camel_case", spinalCase: "camel-case"})
+	sc = append(sc, strCase{camelCase: "SnakeCase", snakeCase: "snake_case", spinalCase: "snake-case"})
+	sc = append(sc, strCase{camelCase: "SpinalCase", snakeCase: "spinal_case", spinalCase: "spinal-case"})
+	return sc
+}
+
+func TestCamelCaseToCamelCase(t *testing.T) {
+	data := newStringTestData()
+	for _, d := range data {
+		result := ToCamelCase(d.camelCase)
+		if result != d.camelCase {
+			t.Errorf("TestCamelCaseToCamelCase: expected [%v], got [%v]", d.camelCase, result)
+		}
 	}
 }
 
-func TestConvertToSnakeCase(t *testing.T) {
-	camel, expected_to_snake := "CamelToSnake", "camel_to_snake"
-	snake_ret := ToSnakeCase(camel)
-	if snake_ret != expected_to_snake {
-		t.Errorf("Expected camel to snake case [%v], got [%v]", expected_to_snake, snake_ret)
+func TestSnakeCaseToCamelCase(t *testing.T) {
+	data := newStringTestData()
+	for _, d := range data {
+		result := ToCamelCase(d.snakeCase)
+		if result != d.camelCase {
+			t.Errorf("TestSnakeCaseToCamelCase: expected [%v], got [%v]", d.camelCase, result)
+		}
 	}
+}
 
-	camel, expected_to_spinal := "CamelToSpinal", "camel-to-spinal"
-	spinal_ret := ToSnakeCase(camel, "-")
-	if spinal_ret != expected_to_spinal {
-		t.Errorf("Expected camel to spinal case [%v], got [%v]", expected_to_spinal, spinal_ret)
+func TestSpinalCaseToCamelCase(t *testing.T) {
+	data := newStringTestData()
+	for _, d := range data {
+		result := ToCamelCase(d.spinalCase, "-")
+		if result != d.camelCase {
+			t.Errorf("TestSpinalCaseToCamelCase: expected [%v], got [%v]", d.camelCase, result)
+		}
+	}
+}
+
+func TestCamelCaseToSnakeCase(t *testing.T) {
+	data := newStringTestData()
+	for _, d := range data {
+		result := ToSnakeCase(d.camelCase)
+		if result != d.snakeCase {
+			t.Errorf("TestCamelCaseToSnakeCase: expected [%v], got [%v]", d.snakeCase, result)
+		}
+	}
+}
+
+func TestCamelCaseToSpinalCase(t *testing.T) {
+	data := newStringTestData()
+	for _, d := range data {
+		result := ToSnakeCase(d.camelCase, "-")
+		if result != d.spinalCase {
+			t.Errorf("TestCamelCaseToSpinalCase: expected [%v], got [%v]", d.spinalCase, result)
+		}
+	}
+}
+
+func BenchmarkCamelCaseToCamelCase(b *testing.B) {
+	data := newStringTestData()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		for _, d := range data {
+			ToCamelCase(d.camelCase)
+		}
+	}
+}
+
+func BenchmarkSnakeCaseToCamelCase(b *testing.B) {
+	data := newStringTestData()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		for _, d := range data {
+			ToCamelCase(d.snakeCase)
+		}
+	}
+}
+
+func BenchmarkSpinalCaseToCamelCase(b *testing.B) {
+	data := newStringTestData()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		for _, d := range data {
+			ToCamelCase(d.spinalCase)
+		}
+	}
+}
+
+func BenchmarkCamelCaseToSnakeCase(b *testing.B) {
+	data := newStringTestData()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		for _, d := range data {
+			ToSnakeCase(d.camelCase)
+		}
+	}
+}
+
+func BenchmarkCamelCaseToSpinalCase(b *testing.B) {
+	data := newStringTestData()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		for _, d := range data {
+			ToSnakeCase(d.camelCase, "-")
+		}
 	}
 }

@@ -151,3 +151,21 @@ func TestUnmarshalFlatJSONFromStructuredJSONArray(t *testing.T) {
 		checkUnmarshalTestData(t, "Test unmarshal flat JSON from structured JSON Array", expected, result[0])
 	}
 }
+
+func BenchmarkUnmarshalFlatJSONFromStructuredJSONObject(b *testing.B) {
+	_, _, _, structuredJsonObject, _ := newJsonTestData()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		result := person{}
+		ToFlatJSON(structuredJsonObject, result).Unmarshal(&result)
+	}
+}
+
+func BenchmarkUnmarshalFlatJSONFromStructuredJSONArray(b *testing.B) {
+	_, _, _, _, structuredJsonArray := newJsonTestData()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		result := []person{}
+		ToFlatJSON(structuredJsonArray, result).Unmarshal(&result)
+	}
+}

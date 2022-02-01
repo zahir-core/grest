@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// ToCamelCase convert from snake case or other (based on delimiter) to UpperCamelCase
 func ToCamelCase(str string, d ...string) string {
 	delimiter := "_"
 	if len(d) > 0 {
@@ -16,6 +17,8 @@ func ToCamelCase(str string, d ...string) string {
 	})
 }
 
+// ToSnakeCase convert from camelCase to snake case or other (based on delimiter)
+// to convert from other (based on delimiter) to snake case or vice versa, use strings.ReplaceAll instead
 func ToSnakeCase(str string, d ...string) string {
 	delimiter := "_"
 	if len(d) > 0 {
