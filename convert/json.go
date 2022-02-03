@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 type jsonData struct {
@@ -22,7 +24,7 @@ func ToFlatJSON(data []byte, v interface{}) jsonData {
 	if data != nil {
 		return flatFromStructuredJSONByte(data, v)
 	}
-	return newFlatFromStruct(v)
+	return flatFromStructValue(v)
 }
 
 // ToStructuredJSON convert from flat json byte or struct or slice of struct to structured map based on dot notation key
@@ -30,7 +32,10 @@ func ToFlatJSON(data []byte, v interface{}) jsonData {
 // if "data" is not nil and "v" is nil or not valid struct or slice of struct, structured map is converted from "data" based on "data"
 // if "data" is nil and "v" is not nil and "v" is valid struct or slice of struct, structured map is converted from "v" based on "v"
 func ToStructuredJSON(data []byte, v interface{}) jsonData {
-	return jsonData{}
+	if data != nil {
+		return structuredFromFlatJSONByte(data, v)
+	}
+	return structuredFromStructValue(v)
 }
 
 func (d jsonData) Marshal() ([]byte, error) {
@@ -168,17 +173,77 @@ func flatMapFromStructuredJSONObjectBasedOnStructType(data []byte, t reflect.Typ
 }
 
 func flatMapFromStructuredMap(m map[string]interface{}) map[string]interface{} {
+	// todo
 	return m
 }
 
-func newFlatFromStruct(v interface{}) jsonData {
+func flatFromStructValue(v interface{}) jsonData {
+	// todo
 	return jsonData{}
 }
 
-func newStructuredFromFlatJSON(data []byte, v interface{}) jsonData {
-	return jsonData{}
+func structuredFromFlatJSONByte(data []byte, v interface{}) jsonData {
+	if v != nil {
+		// todo: from struct tag
+	}
+
+	var tempData interface{}
+	err := json.Unmarshal(data, &tempData)
+	if err != nil {
+		return jsonData{err: err}
+	}
+
+	m, isMap := tempData.(map[string]interface{})
+	if isMap {
+		return jsonData{data: structuredMapFromFlatMap(m)}
+	}
+	slc, isSlice := tempData.([]interface{})
+	if isSlice {
+		newSlice := []interface{}{}
+		for i, s := range slc {
+			m, isMap := s.(map[string]interface{})
+			if isMap {
+				newSlice[i] = jsonData{data: structuredMapFromFlatMap(m)}
+			} else {
+				newSlice[i] = s
+			}
+		}
+		return jsonData{data: newSlice}
+	}
+
+	return jsonData{data: tempData}
 }
 
-func newStructuredFromStruct(v interface{}) jsonData {
+func structuredMapFromFlatJSONObjectBasedOnStructType(data []byte, t reflect.Type) map[string]interface{} {
+	flatMap := map[string]interface{}{}
+	// todo
+	return flatMap
+}
+
+func structuredMapFromFlatMap(m map[string]interface{}) map[string]interface{} {
+	jsonByte := []byte("{}")
+	for k, v := range m {
+		slc, isSlice := v.([]interface{})
+		if isSlice {
+			for i, s := range slc {
+				iString := strconv.Itoa(i)
+				sliceMap, isSliceMap := s.(map[string]interface{})
+				if isSliceMap {
+					jsonByte, _ = sjson.SetBytes(jsonByte, k+"."+iString, structuredMapFromFlatMap(sliceMap))
+				} else {
+					jsonByte, _ = sjson.SetBytes(jsonByte, k+"."+iString, s)
+				}
+			}
+		} else {
+			jsonByte, _ = sjson.SetBytes(jsonByte, k, v)
+		}
+	}
+	res := map[string]interface{}{}
+	json.Unmarshal(jsonByte, &res)
+	return res
+}
+
+func structuredFromStructValue(v interface{}) jsonData {
+	// todo
 	return jsonData{}
 }

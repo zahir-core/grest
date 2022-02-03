@@ -39,7 +39,7 @@ func newJsonTestData() (expected person, flatJsonObject, flatJsonArray, structur
 		"id": "` + e.ID + `",
 		"name.first": "` + e.FirstName + `",
 		"name.last": "` + e.LastName + `",
-		"age": "` + strconv.Itoa(e.Age) + `",
+		"age": ` + strconv.Itoa(e.Age) + `,
 		"friends": [
 			{
 				"name.first": "` + e.Friends[0].FirstName + `",
@@ -60,7 +60,7 @@ func newJsonTestData() (expected person, flatJsonObject, flatJsonArray, structur
 			"first": "` + e.FirstName + `",
 			"last": "` + e.LastName + `"
 		},
-		"age": "` + strconv.Itoa(e.Age) + `",
+		"age": ` + strconv.Itoa(e.Age) + `,
 		"friends": [
 			{
 				"name": {
@@ -91,7 +91,7 @@ func newJsonTestData() (expected person, flatJsonObject, flatJsonArray, structur
 	return
 }
 
-func checkUnmarshalTestData(t *testing.T, title string, expected, result person) {
+func checkUnmarshalStructTestData(t *testing.T, title string, expected, result person) {
 	if result.ID != expected.ID {
 		t.Errorf("%v : Expected ID [%v], got [%v]", title, expected.ID, result.ID)
 	}
@@ -128,28 +128,172 @@ func checkUnmarshalTestData(t *testing.T, title string, expected, result person)
 	}
 }
 
-func TestUnmarshalFlatJSONFromStructuredJSONObject(t *testing.T) {
+func checkUnmarshalMapStructuredTestData(t *testing.T, title string, expected person, result map[string]interface{}) {
+	id, isIdExists := result["id"]
+	if !isIdExists {
+		t.Errorf("%v : id is not exists", title)
+	}
+	idString, isIdString := id.(string)
+	if !isIdString {
+		t.Errorf("%v : id is not string", title)
+	}
+	if idString != expected.ID {
+		t.Errorf("%v : expected ID [%v], got [%v]", title, expected.ID, idString)
+	}
+	name, isNameExists := result["name"]
+	if !isNameExists {
+		t.Errorf("%v : name is not exists", title)
+	}
+	nameMap, isNameMap := name.(map[string]interface{})
+	if !isNameMap {
+		t.Errorf("%v : name is not map", title)
+	}
+	firstName, isFirstNameExists := nameMap["first"]
+	if !isFirstNameExists {
+		t.Errorf("%v : name[first] is not exists", title)
+	}
+	firstNameString, isFirstNameString := firstName.(string)
+	if !isFirstNameString {
+		t.Errorf("%v : name[first] is not string", title)
+	}
+	if firstNameString != expected.FirstName {
+		t.Errorf("%v : expected name[first] [%v], got [%v]", title, expected.FirstName, firstNameString)
+	}
+	lastName, isLastNameExists := nameMap["last"]
+	if !isLastNameExists {
+		t.Errorf("%v : name[last] is not exists", title)
+	}
+	lastNameString, isLastNameString := lastName.(string)
+	if !isLastNameString {
+		t.Errorf("%v : name[last] is not string", title)
+	}
+	if lastNameString != expected.LastName {
+		t.Errorf("%v : expected name[last] [%v], got [%v]", title, expected.LastName, lastNameString)
+	}
+	age, isAgeExists := result["age"]
+	if !isAgeExists {
+		t.Errorf("%v : age is not exists", title)
+	}
+	ageInt, isAgeInt := age.(float64)
+	if !isAgeInt {
+		t.Errorf("%v : age is not float64", title)
+	}
+	if int(ageInt) != expected.Age {
+		t.Errorf("%v : expected age [%v], got [%v]", title, expected.Age, ageInt)
+	}
+	friends, isFriendsExists := result["friends"]
+	if !isFriendsExists {
+		t.Errorf("%v : friends is not exists", title)
+	}
+	friendsSlice, isFriendsSlice := friends.([]interface{})
+	if !isFriendsSlice {
+		t.Errorf("%v : friends is not slice", title)
+	}
+	if len(friendsSlice) != len(expected.Friends) {
+		t.Errorf("%v : expected friends count [%v], got [%v]", title, len(expected.Friends), len(friendsSlice))
+	} else {
+		for i, friendsSliceValue := range friendsSlice {
+			v, isFriefriendsSliceValueMap := friendsSliceValue.(map[string]interface{})
+			if !isFriefriendsSliceValueMap {
+				t.Errorf("%v : friends slice value is not map", title)
+			}
+			friendName, isFriendNameExists := v["name"]
+			if !isFriendNameExists {
+				t.Errorf("%v : friends[%v].name is not exists", title, i)
+			}
+			friendNameMap, isFriendNameMap := friendName.(map[string]interface{})
+			if !isFriendNameMap {
+				t.Errorf("%v : friends[%v].name is not map", title, i)
+			}
+			friendFirstName, isFriendFirstNameExists := friendNameMap["first"]
+			if !isFriendFirstNameExists {
+				t.Errorf("%v : friends[%v].name[first] is not exists", title, i)
+			}
+			if friendFirstName != expected.Friends[i].FirstName {
+				t.Errorf("%v : expected friends[%v].name[first] [%v], got [%v]", title, i, expected.Friends[i].FirstName, friendFirstName)
+			}
+			friendLastName, isFriendLastNameExists := friendNameMap["last"]
+			if !isFriendLastNameExists {
+				t.Errorf("%v : friends[%v].name[last] is not exists", title, i)
+			}
+			if friendLastName != expected.Friends[i].LastName {
+				t.Errorf("%v : expected friends[%v].name[last] [%v], got [%v]", title, i, expected.Friends[i].LastName, friendLastName)
+			}
+
+		}
+	}
+	created, isCreatedExists := result["created"]
+	if !isCreatedExists {
+		t.Errorf("%v : created is not exists", title)
+	}
+	createdMap, isCreatedMap := created.(map[string]interface{})
+	if !isCreatedMap {
+		t.Errorf("%v : created is not map", title)
+	}
+	createdTime, isCreatedTimeExists := createdMap["time"]
+	if !isCreatedTimeExists {
+		t.Errorf("%v : created[time] is not exists", title)
+	}
+	createdTimeTime, createdTimeErr := time.Parse(time.RFC3339, createdTime.(string))
+	if createdTimeErr != nil {
+		t.Errorf("%v : created[time] is not time.Time, err :%v", title, createdTimeErr.Error())
+	}
+	if createdTimeTime != expected.CreatedAt {
+		t.Errorf("%v : expected created[time] [%v], got [%v]", title, expected.CreatedAt, createdTimeTime)
+	}
+	updated, isUpdatedExists := result["updated"]
+	if !isUpdatedExists {
+		t.Errorf("%v : updated is not exists", title)
+	}
+	updatedMap, isUpdatedMap := updated.(map[string]interface{})
+	if !isUpdatedMap {
+		t.Errorf("%v : updated is not map", title)
+	}
+	updatedTime, isUpdatedTimeExists := updatedMap["time"]
+	if !isUpdatedTimeExists {
+		t.Errorf("%v : updated[time] is not exists", title)
+	}
+	updatedTimeTime, updatedTimeErr := time.Parse(time.RFC3339, updatedTime.(string))
+	if updatedTimeErr != nil {
+		t.Errorf("%v : updated[time] is not time.Time, err :%v", title, updatedTimeErr.Error())
+	}
+	if updatedTimeTime != expected.UpdatedAt {
+		t.Errorf("%v : expected updated[time] [%v], got [%v]", title, expected.UpdatedAt, updatedTimeTime)
+	}
+}
+
+func TestUnmarshalFlatJSONFromStructuredJSONObjectBasedOnStrucType(t *testing.T) {
 	expected, _, _, structuredJsonObject, _ := newJsonTestData()
 	result := person{}
 	err := ToFlatJSON(structuredJsonObject, result).Unmarshal(&result)
 	if err != nil {
-		t.Errorf("Test unmarshal flat JSON from structured JSON Object : Error occurred [%v]", err)
+		t.Errorf("Test unmarshal flat JSON from structured JSON Object based on struct type : Error occurred [%v]", err)
 	}
-	checkUnmarshalTestData(t, "Test unmarshal flat JSON from structured JSON Object", expected, result)
+	checkUnmarshalStructTestData(t, "Test unmarshal flat JSON from structured JSON Object based on struct type", expected, result)
 }
 
-func TestUnmarshalFlatJSONFromStructuredJSONArray(t *testing.T) {
+func TestUnmarshalFlatJSONFromStructuredJSONArrayBasedOnStrucType(t *testing.T) {
 	expected, _, _, _, structuredJsonArray := newJsonTestData()
 	result := []person{}
 	err := ToFlatJSON(structuredJsonArray, result).Unmarshal(&result)
 	if err != nil {
-		t.Errorf("Test unmarshal flat JSON from structured JSON Array : Error occurred [%v]", err)
+		t.Errorf("Test unmarshal flat JSON from structured JSON Array based on struct type : Error occurred [%v]", err)
 	}
 	if len(result) == 0 {
-		t.Errorf("Test unmarshal flat JSON from structured JSON Array : Expected count [%v], got [%v]", 1, 0)
+		t.Errorf("Test unmarshal flat JSON from structured JSON Array based on struct type : Expected count [%v], got [%v]", 1, 0)
 	} else {
-		checkUnmarshalTestData(t, "Test unmarshal flat JSON from structured JSON Array", expected, result[0])
+		checkUnmarshalStructTestData(t, "Test unmarshal flat JSON from structured JSON Array based on struct type", expected, result[0])
 	}
+}
+
+func TestUnmarshalStructuredJSONFromFlatJSONObjectByte(t *testing.T) {
+	expected, flatJsonObject, _, _, _ := newJsonTestData()
+	result := map[string]interface{}{}
+	err := ToStructuredJSON(flatJsonObject, nil).Unmarshal(&result)
+	if err != nil {
+		t.Errorf("Test unmarshal structured JSON from flat JSON object byte : Error occurred [%v]", err)
+	}
+	checkUnmarshalMapStructuredTestData(t, "Test unmarshal structured JSON from flat JSON object byte", expected, result)
 }
 
 func BenchmarkUnmarshalFlatJSONFromStructuredJSONObject(b *testing.B) {
@@ -161,11 +305,46 @@ func BenchmarkUnmarshalFlatJSONFromStructuredJSONObject(b *testing.B) {
 	}
 }
 
+func BenchmarkMarshalFlatJSONFromStructuredJSONObject(b *testing.B) {
+	_, _, _, structuredJsonObject, _ := newJsonTestData()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		result := person{}
+		ToFlatJSON(structuredJsonObject, result).Marshal()
+	}
+}
+
 func BenchmarkUnmarshalFlatJSONFromStructuredJSONArray(b *testing.B) {
 	_, _, _, _, structuredJsonArray := newJsonTestData()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		result := []person{}
 		ToFlatJSON(structuredJsonArray, result).Unmarshal(&result)
+	}
+}
+
+func BenchmarkMarshalFlatJSONFromStructuredJSONArray(b *testing.B) {
+	_, _, _, _, structuredJsonArray := newJsonTestData()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		result := []person{}
+		ToFlatJSON(structuredJsonArray, result).Marshal()
+	}
+}
+
+func BenchmarkUnmarshalStructuredJSONFromFlatJSONObjectByte(b *testing.B) {
+	_, flatJsonObject, _, _, _ := newJsonTestData()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		result := map[string]interface{}{}
+		ToStructuredJSON(flatJsonObject, nil).Unmarshal(&result)
+	}
+}
+
+func BenchmarkMarshalStructuredJSONFromFlatJSONObjectByte(b *testing.B) {
+	_, flatJsonObject, _, _, _ := newJsonTestData()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		ToStructuredJSON(flatJsonObject, nil).Marshal()
 	}
 }

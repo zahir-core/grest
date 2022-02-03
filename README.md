@@ -10,9 +10,9 @@
 
 - [ ] Getting Started
   - [ ] Prerequisites
-  - [ ] Generating an app
-  - [ ] Directory Structure
-  - [ ] Configuration
+  - [ ] CLI
+  - [x] Directory Structure
+  - [x] Configuration
   - [ ] Testing
   - [ ] Deployment
 - [ ] Basic
@@ -42,7 +42,7 @@
   - [ ] gRPC Client
 - [ ] Notification
   - [ ] Mail
-  - [ ] Telegram
+  - [x] Telegram
   - [ ] Slack
 - [ ] More
   - [ ] Swagger API Documentation
