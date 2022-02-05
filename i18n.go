@@ -7,14 +7,16 @@ import (
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Language
 var i18n = map[string]map[string]string{
 	"en-US": {
-		"bad_request":  "The request cannot be performed because of malformed or missing parameters.",
-		"forbidden":    "The user does not have permission to access the resource.",
-		"unauthorized": "Request was rejected because of invalid or expired Authentication Token.",
+		"bad_request":    "The request cannot be performed because of malformed or missing parameters.",
+		"forbidden":      "The user does not have permission to access the resource.",
+		"internal_error": "Failed to connect to the server, please try again later.",
+		"unauthorized":   "Invalid authentication token. Please Re-Login",
 	},
 	"id-ID": {
-		"bad_request":  "The request cannot be performed because of malformed or missing parameters.",
-		"forbidden":    "The user does not have permission to access the resource.",
-		"unauthorized": "Request was rejected because of invalid or expired Authentication Token.",
+		"bad_request":    "Permintaan tidak dapat dilakukan karena ada parameter yang salah atau tidak lengkap.",
+		"forbidden":      "Pengguna tidak memiliki izin untuk mengakses data.",
+		"internal_error": "Gagal terhubung ke server, silakan coba lagi nanti.",
+		"unauthorized":   "Token otentikasi tidak valid. Silahkan logout dan login ulang",
 	},
 }
 
