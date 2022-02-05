@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/recover"
 
 	"grest.dev/grest/swagger"
 )
@@ -19,7 +18,6 @@ type App struct {
 	KeyFile               string
 	DisableStartupMessage bool
 	Config                fiber.Config
-	Recover               fiber.Handler
 	ErrorHandler          fiber.ErrorHandler
 	NotFoundHandler       fiber.Handler // to make sure it added at the very bottom of the stack (below all other functions) to handle a 404 response
 	Fiber                 *fiber.App
@@ -29,7 +27,6 @@ type App struct {
 func New(a ...App) *App {
 	app := checkConfig(a...)
 	app.Fiber = fiber.New(app.Config)
-	app.Fiber.Use(app.Recover)
 
 	return &app
 }
@@ -42,9 +39,6 @@ func checkConfig(a ...App) App {
 	app.Config.DisableStartupMessage = true
 	if app.ErrorHandler == nil && app.Config.ErrorHandler == nil {
 		app.Config.ErrorHandler = NewErrorHandler()
-	}
-	if app.Recover == nil {
-		app.Recover = recover.New()
 	}
 	if app.NotFoundHandler == nil {
 		app.NotFoundHandler = NewNotFoundHandler()
