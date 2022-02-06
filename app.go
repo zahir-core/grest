@@ -38,7 +38,10 @@ func checkConfig(a ...App) App {
 	}
 	app.Config.DisableStartupMessage = true
 	if app.ErrorHandler == nil && app.Config.ErrorHandler == nil {
-		app.Config.ErrorHandler = NewErrorHandler()
+		app.ErrorHandler = NewErrorHandler()
+	}
+	if app.Config.ErrorHandler == nil {
+		app.Config.ErrorHandler = app.ErrorHandler
 	}
 	if app.NotFoundHandler == nil {
 		app.NotFoundHandler = NewNotFoundHandler()
