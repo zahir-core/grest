@@ -25,6 +25,15 @@ type NullBool struct {
 	sql.NullBool
 }
 
+func (n *NullBool) Set(val bool) {
+	n.Valid = true
+	n.Bool = val
+}
+
+func (n *NullBool) Value() bool {
+	return n.Bool
+}
+
 // MarshalText implements encoding.TextMarshaler.
 // It will encode blank if this NullBool is null, not false.
 func (n NullBool) MarshalText() ([]byte, error) {
@@ -111,6 +120,15 @@ type NullInt64 struct {
 	sql.NullInt64
 }
 
+func (n *NullInt64) Set(val int64) {
+	n.Valid = true
+	n.Int64 = val
+}
+
+func (n *NullInt64) Value() int64 {
+	return n.Int64
+}
+
 // MarshalText implements encoding.TextMarshaler.
 // It will encode a blank string if this NullInt64 is null.
 func (n NullInt64) MarshalText() ([]byte, error) {
@@ -179,6 +197,15 @@ type NullFloat64 struct {
 	sql.NullFloat64
 }
 
+func (n *NullFloat64) Set(val float64) {
+	n.Valid = true
+	n.Float64 = val
+}
+
+func (n *NullFloat64) Value() float64 {
+	return n.Float64
+}
+
 // MarshalText implements encoding.TextMarshaler.
 // It will encode a blank string if this NullFloat64 is null.
 func (n NullFloat64) MarshalText() ([]byte, error) {
@@ -245,6 +272,15 @@ type NullString struct {
 	sql.NullString
 }
 
+func (n *NullString) Set(val string) {
+	n.Valid = true
+	n.String = val
+}
+
+func (n *NullString) Value() string {
+	return n.String
+}
+
 // MarshalText implements encoding.TextMarshaler.
 // It will encode a blank string if this NullString is null.
 func (n NullString) MarshalText() ([]byte, error) {
@@ -296,6 +332,15 @@ type NullDateTime struct {
 	sql.NullTime
 }
 
+func (n *NullDateTime) Set(val time.Time) {
+	n.Valid = true
+	n.Time = val
+}
+
+func (n *NullDateTime) Value() time.Time {
+	return n.Time
+}
+
 // MarshalJSON implements json.Marshaler.
 // It will encode null if this NullDateTime is null.
 func (n NullDateTime) MarshalJSON() ([]byte, error) {
@@ -328,6 +373,15 @@ func (n NullDateTime) IsZero() bool {
 // It supports SQL and JSON serialization.
 type NullDate struct {
 	NullString
+}
+
+func (n *NullDate) Set(val string) {
+	n.Valid = true
+	n.String = val
+}
+
+func (n *NullDate) Value() string {
+	return n.String
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
@@ -402,6 +456,15 @@ type NullTime struct {
 	NullString
 }
 
+func (n *NullTime) Set(val string) {
+	n.Valid = true
+	n.String = val
+}
+
+func (n *NullTime) Value() string {
+	return n.String
+}
+
 // UnmarshalJSON implements json.Unmarshaler.
 // It supports a string that can be parsed to a time.Time.
 // Other input value will be considered null, not error.
@@ -472,6 +535,15 @@ type NullText struct {
 	NullString
 }
 
+func (n *NullText) Set(val string) {
+	n.Valid = true
+	n.String = val
+}
+
+func (n *NullText) Value() string {
+	return n.String
+}
+
 // GormDataType returns gorm common data type. This type is used for the field's column type.
 func (NullText) GormDataType() string {
 	return "text"
@@ -499,6 +571,15 @@ type NullJSON struct {
 	NullString
 }
 
+func (n *NullJSON) Set(val string) {
+	n.Valid = true
+	n.String = val
+}
+
+func (n *NullJSON) Value() string {
+	return n.String
+}
+
 // GormDataType returns gorm common data type. This type is used for the field's column type.
 func (NullJSON) GormDataType() string {
 	return "json"
@@ -524,6 +605,15 @@ func (NullJSON) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 
 type NullUUID struct {
 	NullString
+}
+
+func (n *NullUUID) Set(val string) {
+	n.Valid = true
+	n.String = val
+}
+
+func (n *NullUUID) Value() string {
+	return n.String
 }
 
 // GormDataType returns gorm common data type. This type is used for the field's column type.
