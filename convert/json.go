@@ -182,8 +182,8 @@ func flatMapFromStructuredMap(m map[string]interface{}) map[string]interface{} {
 }
 
 func flatFromStructValue(v interface{}) jsonData {
-	// todo
-	return jsonData{}
+	data, _ := json.Marshal(v)
+	return flatFromStructuredJSONByte(data, v)
 }
 
 func structuredFromFlatJSONByte(data []byte, v interface{}) jsonData {
@@ -248,6 +248,6 @@ func structuredMapFromFlatMap(m map[string]interface{}) map[string]interface{} {
 }
 
 func structuredFromStructValue(v interface{}) jsonData {
-	// todo
-	return jsonData{}
+	data, _ := json.Marshal(v)
+	return structuredFromFlatJSONByte(data, v)
 }
