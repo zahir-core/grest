@@ -3,6 +3,7 @@ package db
 import (
 	"bytes"
 	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,6 +33,54 @@ func (n *NullBool) Set(val bool) {
 
 func (n *NullBool) Val() bool {
 	return n.Bool
+}
+
+// Scan implements the Scanner interface.
+func (n *NullBool) Scan(value interface{}) error {
+	if value == nil {
+		n.Bool, n.Valid = false, false
+		return nil
+	}
+	n.Valid = true
+
+	nb := sql.NullBool{}
+	err := nb.Scan(value)
+	if err == nil {
+		n.Bool = nb.Bool
+		return nil
+	}
+
+	ni32 := sql.NullInt32{}
+	err = ni32.Scan(value)
+	if err == nil && ni32.Int32 == 1 {
+		n.Bool = true
+		return nil
+	}
+
+	ni64 := sql.NullInt64{}
+	err = ni64.Scan(value)
+	if err == nil && ni64.Int64 == 1 {
+		n.Bool = true
+		return nil
+	}
+
+	ns := sql.NullString{}
+	err = ns.Scan(value)
+	if err == nil && (ns.String == "1" || ns.String == "t" || ns.String == "T" || ns.String == "true" || ns.String == "True" || ns.String == "TRUE") {
+		n.Bool = true
+	}
+	return nil
+}
+
+// Value implements the driver Valuer interface.
+func (n NullBool) Value() (driver.Value, error) {
+	if !n.Valid {
+		return nil, nil
+	}
+	if n.Bool {
+		return "1", nil
+	}
+	return "0", nil
 }
 
 // MarshalText implements encoding.TextMarshaler.
