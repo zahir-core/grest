@@ -247,11 +247,3 @@ func structuredFromStructValue(v interface{}) jsonData {
 	// todo
 	return jsonData{}
 }
-
-func GetJsonTag(rsf reflect.StructField) string {
-	name := strings.SplitN(rsf.Tag.Get("json"), ",", 2)[0]
-	if name == "-" {
-		return ""
-	}
-	return name
-}
