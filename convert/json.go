@@ -38,6 +38,10 @@ func ToStructuredJSON(data []byte, v interface{}) jsonData {
 	return structuredFromStructValue(v)
 }
 
+func (d jsonData) Value() interface{} {
+	return d.data
+}
+
 func (d jsonData) Marshal() ([]byte, error) {
 	if d.err != nil {
 		return []byte{}, d.err
