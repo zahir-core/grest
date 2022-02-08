@@ -1,6 +1,7 @@
 package validator
 
 import (
+	"database/sql/driver"
 	"net/http"
 	"reflect"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	translations "github.com/go-playground/validator/v10/translations/en"
 
 	"grest.dev/grest"
+	"grest.dev/grest/db"
 )
 
 // use a single instance of Validate, it caches struct info
@@ -22,14 +24,39 @@ var (
 
 func Configure() {
 	validate = validator.New()
-	validate.RegisterTagNameFunc(func(fld reflect.StructField) string {
-		name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
-		if name == "-" {
-			return ""
-		}
-		return name
-	})
+	validate.RegisterTagNameFunc(validateTagNamer)
+	validate.RegisterCustomTypeFunc(validateValuer,
+		db.NullBool{},
+		db.NullInt64{},
+		db.NullFloat64{},
+		db.NullString{},
+		db.NullDateTime{},
+		db.NullDate{},
+		db.NullTime{},
+		db.NullText{},
+		db.NullJSON{},
+		db.NullUUID{},
+	)
 	AddTranslator("en", en.New(), translations.RegisterDefaultTranslations)
+}
+
+func validateTagNamer(fld reflect.StructField) string {
+	name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
+	if name == "-" {
+		return ""
+	}
+	return name
+}
+
+func validateValuer(field reflect.Value) interface{} {
+	if valuer, ok := field.Interface().(driver.Valuer); ok {
+		val, err := valuer.Value()
+		if err == nil {
+			return val
+		}
+	}
+
+	return nil
 }
 
 func AddValidator(tag string, fn validator.Func, callValidationEvenIfNull ...bool) error {
