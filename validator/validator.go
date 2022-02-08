@@ -100,7 +100,7 @@ func Validate(lang string, v interface{}) error {
 			if message == "" {
 				message = msg
 			}
-			detail[e.Namespace()] = map[string]interface{}{e.Tag(): msg}
+			detail[e.Field()] = map[string]interface{}{e.Tag(): msg}
 		}
 		return grest.NewError(http.StatusBadRequest, message, detail)
 	}
