@@ -30,7 +30,7 @@ func (n *NullBool) Set(val bool) {
 	n.Bool = val
 }
 
-func (n *NullBool) Value() bool {
+func (n *NullBool) Val() bool {
 	return n.Bool
 }
 
@@ -125,7 +125,7 @@ func (n *NullInt64) Set(val int64) {
 	n.Int64 = val
 }
 
-func (n *NullInt64) Value() int64 {
+func (n *NullInt64) Val() int64 {
 	return n.Int64
 }
 
@@ -202,7 +202,7 @@ func (n *NullFloat64) Set(val float64) {
 	n.Float64 = val
 }
 
-func (n *NullFloat64) Value() float64 {
+func (n *NullFloat64) Val() float64 {
 	return n.Float64
 }
 
@@ -277,7 +277,7 @@ func (n *NullString) Set(val string) {
 	n.String = val
 }
 
-func (n *NullString) Value() string {
+func (n *NullString) Val() string {
 	return n.String
 }
 
@@ -337,7 +337,7 @@ func (n *NullDateTime) Set(val time.Time) {
 	n.Time = val
 }
 
-func (n *NullDateTime) Value() time.Time {
+func (n *NullDateTime) Val() time.Time {
 	return n.Time
 }
 
@@ -380,7 +380,7 @@ func (n *NullDate) Set(val string) {
 	n.String = val
 }
 
-func (n *NullDate) Value() string {
+func (n *NullDate) Val() string {
 	return n.String
 }
 
@@ -461,7 +461,7 @@ func (n *NullTime) Set(val string) {
 	n.String = val
 }
 
-func (n *NullTime) Value() string {
+func (n *NullTime) Val() string {
 	return n.String
 }
 
@@ -540,7 +540,7 @@ func (n *NullText) Set(val string) {
 	n.String = val
 }
 
-func (n *NullText) Value() string {
+func (n *NullText) Val() string {
 	return n.String
 }
 
@@ -576,7 +576,7 @@ func (n *NullJSON) Set(val string) {
 	n.String = val
 }
 
-func (n *NullJSON) Value() string {
+func (n *NullJSON) Val() string {
 	return n.String
 }
 
@@ -612,7 +612,7 @@ func (n *NullUUID) Set(val string) {
 	n.String = val
 }
 
-func (n *NullUUID) Value() string {
+func (n *NullUUID) Val() string {
 	return n.String
 }
 
