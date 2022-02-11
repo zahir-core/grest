@@ -2,11 +2,27 @@ package db
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+// in progress
+func First(db *gorm.DB, dest interface{}, query url.Values) error {
+	return nil
+}
+
+// in progress
+func Find(db *gorm.DB, dest interface{}, query url.Values) error {
+	return nil
+}
+
+// in progress
+func PaginationInfo(db *gorm.DB, dest interface{}, query url.Values) (int, int, int, int, error) {
+	return 0, 0, 0, 0, nil
+}
 
 // WhereExpression implements clause.Expression interface to use as querier
 type WhereExpression struct {
