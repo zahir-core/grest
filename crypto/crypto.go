@@ -23,7 +23,7 @@ var (
 	ErrKeyEmpty    = errors.New("key cannot be empty")
 	ErrKeyTooShort = errors.New("key too short")
 	ErrCtTooShort  = errors.New("ciphertext too short")
-	ErrCtUnpadded  = errors.New("ciphertext is not a multiple of the block size")
+	ErrCtUnpadded  = errors.New("ciphertext is not a multiple of the block size, please use the correct key")
 	ErrPtUnpadded  = errors.New("plaintext is not a multiple of the block size")
 )
 
@@ -103,8 +103,8 @@ func Decrypt(text string) (string, error) {
 	plaintext := make([]byte, len(ciphertext)-aes.BlockSize)
 	mode := cipher.NewCBCDecrypter(block, iv)
 	mode.CryptBlocks(plaintext, ct)
-	plaintext = pkcs5{}.unpadding(plaintext)
-	return string(plaintext), nil
+	plaintext, err = pkcs5{}.unpadding(plaintext)
+	return string(plaintext), err
 }
 
 func generateKey() ([]byte, error) {
@@ -133,7 +133,11 @@ func (p pkcs5) padding(ciphertext []byte, blockSize int) []byte {
 	return append(ciphertext, padtext...)
 }
 
-func (p pkcs5) unpadding(encrypt []byte) []byte {
+func (p pkcs5) unpadding(encrypt []byte) ([]byte, error) {
 	padding := encrypt[len(encrypt)-1]
-	return encrypt[:len(encrypt)-int(padding)]
+	length := len(encrypt) - int(padding)
+	if length > 0 {
+		return encrypt[:length], nil
+	}
+	return encrypt, ErrCtUnpadded
 }

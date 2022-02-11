@@ -1,7 +1,6 @@
 package db
 
 type Schema interface {
-	ConnName() string
 	TableVersion() string
 	TableName() string
 	TableAliasName() string
@@ -52,6 +51,7 @@ type Relation struct {
 	JoinType          string
 	TableName         string
 	TableAliasName    string
+	SubQuery          Schema
 	RelationCondition []Filter
 }
 
