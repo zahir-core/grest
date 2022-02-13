@@ -3,7 +3,6 @@ package db
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math"
 	"net/url"
 	"reflect"
@@ -11,46 +10,109 @@ import (
 	"strings"
 
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
+
 	"grest.dev/grest/convert"
 )
 
-func GetOperator(key string) string {
-	opt := map[string]string{
-		"eq":     "=",
-		"ne":     "!=",
-		"gt":     ">",
-		"gte":    ">=",
-		"lt":     "<",
-		"lte":    "<=",
-		"like":   " like ",
-		"ilike":  " like ",
-		"nlike":  " not like ",
-		"nilike": " not like ",
-	}
-	res, ok := opt[key]
-	if !ok {
-		return "="
-	}
-	return res
+// GREST support a common way for pagination, selecting fields, filtering, sorting, searching and other using URL query params
+// this is the default of query parameter setting, you can override this with your own preferences
+var (
+	// pagination query params setting
+	// if QueryLimit not setted, DefaultLimit will be applied
+	// if QueryLimit setted to 0, only PaginationInfo will be executed (only run a counting query against the database).
+	// if QueryLimit setted greater than MaxLimit, DefaultLimit will be applied, Set DefaultLimit to 0 to allow unlimited QueryLimit.
+	// if QueryDisablePagination setted to true, MaxLimit will be ignored and PaginationInfo will not be executed
+	DefaultLimit           = 10                       // Sets the default number of items when $per_page is not set
+	MaxLimit               = 100                      // Sets the maximum allowed number of items per page (even if the QueryLimit query parameter is set higher)
+	QueryLimit             = "$per_page"              // ex: /contacts?$per_page=20                  => sql: select * from contacts limit 20
+	QueryOffset            = "$offset"                // ex: /contacts?$offset=20                    => sql: select * from contacts offset 20
+	QueryPage              = "$page"                  // ex: /contacts?$page=3&per_page=10           => sql: select * from contacts limit 10 offset 20
+	QueryDisablePagination = "$is_disable_pagination" // ex: /contacts?$is_disable_pagination=true   => sql: select * from contacts
 
-}
+	// selection query params setting
+	// it can be setted by multiple fields, separated by comma
+	// ex: /contacts?$select=id,code,name    => sql: select id, code, name from contacts
+	QuerySelect = "$select"
+
+	// filtering query params setting
+	QueryOptEqual              = "$eq"     // ex: /contacts?gender.$eq=male            => sql: select * from contacts where gender = 'male'                       => same with /contacts?gender=male
+	QueryOptNotEqual           = "$ne"     // ex: /contacts?phone.$ne=null             => sql: select * from contacts where phone is not null
+	QueryOptGreaterThan        = "$gt"     // ex: /contacts?age.$gt=18                 => sql: select * from contacts where age > 18
+	QueryOptGreaterThanOrEqual = "$gte"    // ex: /contacts?age.$gte=21                => sql: select * from contacts where age >= 21
+	QueryOptLowerThan          = "$lt"     // ex: /contacts?age.$lt=17                 => sql: select * from contacts where age < 17
+	QueryOptLowerThanOrEqual   = "$lte"    // ex: /contacts?age.$lte=15                => sql: select * from contacts where age <= 15
+	QueryOptLike               = "$like"   // ex: /contacts?name.$like=john%           => sql: select * from contacts where name like 'john%'
+	QueryOptNotLike            = "$nlike"  // ex: /contacts?name.$nlike=john%          => sql: select * from contacts where name not like 'john%'
+	QueryOptInsensitiveLike    = "$ilike"  // ex: /contacts?name.$ilike=john%          => sql: select * from contacts where lower(name) like lower('john%')
+	QueryOptInsensitiveNotLike = "$nilike" // ex: /contacts?name.$nilike=john%         => sql: select * from contacts where lower(name) not like lower('john%')
+	QueryOptIn                 = "$in"     // ex: /contacts?age.$in=17,21,34           => sql: select * from contacts where age in (17,21,34)
+	QueryOptNotIn              = "$nin"    // ex: /contacts?age.$nin=17,21,34          => sql: select * from contacts where age not in (17,21,34)
+	QueryOr                    = "||"      // ex: /contacts?gender=female||age.$lt=10  => sql: select * from contacts where (gender = 'female' or age < 10)
+	QuerySearch                = "$search" // ex: /contacts?$search=code,name=john     => sql: select * from contacts where (lower(code) = lower('john') or lower(name) = lower('john'))
+
+	// sorting query params setting
+	// default is ascending
+	// it can be setted by multiple fields, separated by comma
+	// add prefix - to sort descending
+	// add sufix :i to sort case insensitive
+	// ex: /contacts?$sort=gender,-age,-name:i   => sql: select * from contacts order by gender, age desc, lower(name) desc
+	QuerySort = "$sort"
+
+	// ===== Advance Query Params =====
+	// it combined by another query params
+
+	// field query params setting
+	// useful for filter, select or sort using another field
+	// ex: /products?qty_available=$field:qty_on_hand          => sql: select * from products where qty_available = qty_on_hand
+	// ex: /products?qty_on_order.$gt=$field:qty_available     => sql: select * from products where qty_on_order > qty_available
+	QueryField = "$field"
+
+	// aggregation query params
+	// ex: /products?$select=$count:id                         => sql: select count(id) as "count_id" from products
+	// ex: /products?$select=$sum:sold                         => sql: select sum(sold) as "sum_sold" from products
+	// ex: /products?$select=$min:sold                         => sql: select min(sold) as "min_sold" from products
+	// ex: /products?$select=$max:sold                         => sql: select max(sold) as "max_sold" from products
+	// ex: /products?$select=$avg:sold                         => sql: select avg(sold) as "avg_sold" from products
+	QueryCount = "$count"
+	QuerySum   = "$sum"
+	QueryMin   = "$min"
+	QueryMax   = "$max"
+	QueryAvg   = "$avg"
+
+	// grouping query params setting
+	// if QueryGroup is setted, QuerySelect is required
+	// ex: /products?$group=$field:category_id&$select=category_id                             => sql: select category_id from products group by category_id
+	// ex: /products?$group=$field:category_id&$select=category_id,$avg:sold                   => sql: select category_id, avg(sold) as "avg_sold" from products group by category_id
+	// ex: /products?$group=$field:category_id&$select=category_id,$sum:sold&$sum:sold.$gt=0   => sql: select category_id, sum(sold) as "sum_sold" from products group by category_id having sum(sold) > 0
+	// ex: /products?$group=$field:category_id&$select=category_id,$sum:sold&$sort:-$sum:sold  => sql: select category_id, sum(sold) as "sum_sold" from products group by category_id order by sum(sold) desc
+	QueryGroup = "$group"
+
+	// include query params setting
+	// for First method, by default query for all array fields is executed
+	// but for Find method, by default query for array fields (has many or many to many) is not executed for optimum performance
+	// to execute array fields query on Find method, you can add using QueryInclude
+	// it can be setted by multiple fields, separated by comma
+	// if QueryInclude setted to all, query for all array fields is executed
+	// ex: /contacts?$include=families,friends,phones            => include array fields: families, friends, and phones
+	// ex: /contacts?$include=all                                => include all array fields
+	// ex: /contacts/{id}                                        => same as /contacts?id={id}&$include=all
+	QueryInclude = "$include"
+	QueryDbField = "$db_field"
+)
 
 // in progress
 func First(db *gorm.DB, dest interface{}, query url.Values) error {
 	if reflect.TypeOf(dest).Kind() != reflect.Ptr {
 		return errors.New("dest is not pointer")
 	}
-	conds := []interface{}{}
-	db, conds = QueryBuilder(db, reflect.ValueOf(dest), query, conds...)
-
 	res := map[string]interface{}{}
-	db.Take(&res, conds...)
-	row := map[string]interface{}{}
-	for k, v := range res {
-		row[strings.ReplaceAll(k, "__", ".")] = v
+	query.Add(QueryInclude, "all")
+	query.Add(QueryDisablePagination, "true")
+	rows := FindRows(db.Limit(1), reflect.ValueOf(dest), query)
+	if len(rows) > 0 {
+		res = rows[0]
 	}
-	b, err := json.Marshal(row)
+	b, err := json.Marshal(res)
 	if err != nil {
 		return err
 	}
@@ -62,20 +124,7 @@ func Find(db *gorm.DB, dest interface{}, query url.Values) error {
 	if reflect.TypeOf(dest).Kind() != reflect.Ptr {
 		return errors.New("dest is not pointer")
 	}
-	conds := []interface{}{}
-	db, conds = QueryBuilder(db, reflect.ValueOf(dest), query, conds...)
-	db = SetPagination(db, query)
-
-	res := []map[string]interface{}{}
-	db.Find(&res, conds...)
-	rows := []map[string]interface{}{}
-	for _, r := range res {
-		row := map[string]interface{}{}
-		for k, v := range r {
-			row[strings.ReplaceAll(k, "__", ".")] = v
-		}
-		rows = append(rows, row)
-	}
+	rows := FindRows(db, reflect.ValueOf(dest), query)
 	b, err := json.Marshal(rows)
 	if err != nil {
 		return err
@@ -83,43 +132,79 @@ func Find(db *gorm.DB, dest interface{}, query url.Values) error {
 	return json.Unmarshal(b, dest)
 }
 
+func FindRows(db *gorm.DB, rv reflect.Value, query url.Values) []map[string]interface{} {
+	rows := []map[string]interface{}{}
+	tx := db.Session(&gorm.Session{})
+	tx = QueryBuilder(tx, rv, query)
+	tx = SetOrder(tx, rv, query)
+	tx = SetPagination(tx, query)
+	tx.Find(&rows)
+	for i, v := range rows {
+		rows[i] = IncludeArray(db, v, rv, query)
+	}
+	return rows
+}
+
 // in progress
 func PaginationInfo(db *gorm.DB, dest interface{}, query url.Values) (int64, int64, int64, int64, error) {
 	count := int64(0)
-	conds := []interface{}{}
-	db, conds = QueryBuilder(db, reflect.ValueOf(dest), query, conds...)
+	db = QueryBuilder(db, reflect.ValueOf(dest), query)
 	db.Count(&count)
-
-	page := 1
-	perPage := 20
-	if query.Get("page") != "" {
-		pageTemp, _ := strconv.Atoi(query.Get("page"))
-		if pageTemp > 0 {
-			page = pageTemp
-		}
-	}
-	if query.Get("per_page") != "" {
-		perPageTemp, _ := strconv.Atoi(query.Get("per_page"))
-		if perPageTemp > 0 {
-			perPage = perPageTemp
-		}
-	}
-
-	return count, int64(page), int64(perPage), int64(math.Ceil(float64(count) / float64(perPage))), nil
+	page, limit := GetPaginationQuery(query)
+	return count, int64(page), int64(limit), int64(math.Ceil(float64(count) / float64(limit))), nil
 }
 
-func QueryBuilder(db *gorm.DB, ptr reflect.Value, query url.Values, conds ...interface{}) (*gorm.DB, []interface{}) {
+func QueryBuilder(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 	if ptr.Elem().Kind() == reflect.Slice {
 		ptr = reflect.New(ptr.Elem().Type().Elem())
 	}
-	db, conds = SetTable(db, ptr, query, conds...)
-	db, conds = SetJoin(db, ptr, query, conds...)
-	db, conds = SetWhere(db, ptr, query, conds...)
-	db, conds = SetSelect(db, ptr, query, conds...)
-	return db, conds
+	db = SetTable(db, ptr, query)
+	db = SetJoin(db, ptr, query)
+	db = SetWhere(db, ptr, query)
+	db = SetSelect(db, ptr, query)
+	return db
 }
 
-func SetTable(db *gorm.DB, ptr reflect.Value, query url.Values, conds ...interface{}) (*gorm.DB, []interface{}) {
+func IncludeArray(db *gorm.DB, data map[string]interface{}, ptr reflect.Value, query url.Values) map[string]interface{} {
+	if ptr.Elem().Kind() == reflect.Slice {
+		ptr = reflect.New(ptr.Elem().Type().Elem())
+	}
+	v := ptr.Elem()
+	t := v.Type()
+	includes := strings.Split(query.Get(QueryInclude), ",")
+	isIncludeAll := len(includes) > 0 && includes[0] == "all"
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		if field.Name != "Model" && field.Tag.Get("json") != "" && field.Tag.Get("json") != "-" && field.Type.Kind() == reflect.Slice {
+			jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
+			dbTag := strings.Split(field.Tag.Get("db"), ",")[0]
+			rel := strings.Split(dbTag, "=")
+			if len(rel) > 1 && (isIncludeAll || inArray(includes, jsonTag)) {
+				if val, isExist := data[rel[1]]; isExist {
+					if valString, isOk := val.(string); isOk {
+						q := url.Values{}
+						q.Add(QueryDbField+"."+rel[0], valString)
+						query.Add(QueryInclude, "all")
+						query.Add(QueryDisablePagination, "true")
+						data[jsonTag] = FindRows(db, reflect.New(field.Type.Elem()), q)
+					}
+				}
+			}
+		}
+	}
+	return data
+}
+
+func inArray(needle []string, haystack string) bool {
+	for _, v := range needle {
+		if v == haystack {
+			return true
+		}
+	}
+	return false
+}
+
+func SetTable(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 	t := ptr.Type()
 	v := ptr.Elem()
 
@@ -142,10 +227,10 @@ func SetTable(db *gorm.DB, ptr reflect.Value, query url.Values, conds ...interfa
 		tableAliasName = tan[0].String()
 	}
 
-	return db.Table(tableName + " as " + tableAliasName), conds
+	return db.Table(Quote(db, tableName) + " as " + Quote(db, tableAliasName))
 }
 
-func SetJoin(db *gorm.DB, ptr reflect.Value, query url.Values, conds ...interface{}) (*gorm.DB, []interface{}) {
+func SetJoin(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 	v := ptr.Elem()
 	r, isExist := v.FieldByName("Relation").Interface().([]Relation)
 	if !isExist || len(r) == 0 {
@@ -162,21 +247,21 @@ func SetJoin(db *gorm.DB, ptr reflect.Value, query url.Values, conds ...interfac
 			}
 
 			// todo: join sub query
-			joinStr += " " + rel.TableName
+			joinStr += " " + Quote(db, rel.TableName)
 
-			joinStr += " as " + rel.TableAliasName
+			joinStr += " as " + Quote(db, rel.TableAliasName)
 
 			joinConditions := []string{}
 			args := []interface{}{}
 			for _, rc := range rel.RelationCondition {
-				jc := rc.Column
+				jc := db.Statement.Quote(rc.Column)
 				if rc.Operator != "" {
 					jc += rc.Operator
 				} else {
 					jc += "="
 				}
 				if rc.Column2 != "" {
-					jc += rc.Column2
+					jc += db.Statement.Quote(rc.Column2)
 				} else if rc.Value != nil {
 					jc += "?"
 					args = append(args, rc.Value)
@@ -190,84 +275,140 @@ func SetJoin(db *gorm.DB, ptr reflect.Value, query url.Values, conds ...interfac
 			db = db.Joins(joinStr, args...)
 		}
 	}
-	return db, conds
+	return db
 }
 
-func SetWhere(db *gorm.DB, ptr reflect.Value, query url.Values, conds ...interface{}) (*gorm.DB, []interface{}) {
+func SetWhere(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 	v := ptr.Elem()
 	f, isExist := v.FieldByName("Filter").Interface().([]Filter)
 	if !isExist || len(f) == 0 {
-		ptr.MethodByName("SetFilter").Call([]reflect.Value{})
+		setFilter := ptr.MethodByName("SetFilter")
+		if setFilter.IsValid() {
+			setFilter.Call([]reflect.Value{})
+		}
 	}
 
 	f, isExist = v.FieldByName("Filter").Interface().([]Filter)
 	if isExist {
 		for _, w := range f {
+			column := w.Column
+			if w.JsonKey == "" {
+				column = db.Statement.Quote(column)
+			} else {
+				column = QuoteJSON(db, column, w.JsonKey)
+			}
 			if w.Operator == "" {
 				w.Operator = "="
 			}
 			if w.Column2 != "" {
-				db = db.Where(db.Statement.Quote(w.Column) + w.Operator + db.Statement.Quote(w.Column2))
+				db = db.Where(column + w.Operator + db.Statement.Quote(w.Column2))
+			} else if w.Value != nil {
+				db = db.Where(column+w.Operator+"?", w.Value)
+			} else if w.Operator == "=" {
+				db = db.Where(column + " is null")
 			} else {
-				if w.JsonKey == "" {
-					if w.Value != nil {
-						db = db.Where(db.Statement.Quote(w.Column)+w.Operator+"?", w.Value)
-					} else {
-						if w.Operator == "=" {
-							db = db.Where(db.Statement.Quote(w.Column) + " is null")
-						} else {
-							db = db.Where(db.Statement.Quote(w.Column) + " is not null")
-						}
-					}
-				} else {
-					conds = append(conds, WhereJSON(w.Column, w.JsonKey, w.Operator, w.Value))
-				}
+				db = db.Where(column + " is not null")
 			}
 		}
 	}
 	t := v.Type()
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		if field.Name != "Model" && field.Tag.Get("json") != "" && field.Tag.Get("json") != "-" && field.Type.Kind() != reflect.Slice {
+		if field.Name != "Model" && field.Type.Kind() != reflect.Slice {
 			jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
 			dbTag := strings.Split(field.Tag.Get("db"), ",")[0]
-			for k, sv := range query {
-				key := strings.Split(k, ".$")
-				if key[0] == jsonTag {
+			for key, sv := range query {
+				key, _ := url.QueryUnescape(key)
+				subkey := strings.Split(key, ".")
+				lastSubkey := subkey[len(subkey)-1]
+				operator := GetOperator(lastSubkey)
+				if operator == "" {
+					operator = "="
+				} else {
+					key = strings.ReplaceAll(key, "."+lastSubkey, "")
+				}
+				isDbTag := false
+
+				if subkey[0] == QueryDbField {
+					isDbTag = true
+					key = strings.ReplaceAll(key, QueryDbField+".", "")
+				}
+				if key == jsonTag || (isDbTag && key == dbTag) || (subkey[0] == jsonTag && field.Type.Name() == "NullJSON") {
+					column := dbTag
+					if field.Type.Name() == "NullJSON" {
+						jsonKey := strings.Join(subkey[1:], ".")
+						column = QuoteJSON(db, column, strings.ReplaceAll(jsonKey, lastSubkey, ""))
+					} else {
+						column = db.Statement.Quote(column)
+					}
 					for _, val := range sv {
-						operator := "="
-						if len(key) > 1 {
-							operator = GetOperator(key[1])
-						}
-						colVal := strings.Split(val, "$column:")
+						colVal := strings.Split(val, QueryField+":")
 						if len(colVal) > 1 {
-							db = db.Where(db.Statement.Quote(dbTag) + operator + db.Statement.Quote(colVal[1]))
-						} else {
-							if val != "null" {
-								db = db.Where(db.Statement.Quote(dbTag)+operator+"?", val)
-							} else {
-								if operator == "=" {
-									db = db.Where(db.Statement.Quote(dbTag) + " is null")
-								} else {
-									db = db.Where(db.Statement.Quote(dbTag) + " is not null")
-								}
+							db = db.Where(column + operator + db.Statement.Quote(colVal[1]))
+						} else if val != "null" {
+							if lastSubkey == QueryOptInsensitiveLike || lastSubkey == QueryOptInsensitiveNotLike {
+								column = "lower(" + column + ")"
+								val = strings.ToLower(val)
 							}
+							if lastSubkey == QueryOptIn || lastSubkey == QueryOptNotIn {
+								args := strings.Split(val, ",")
+								vars := "("
+								for i := range args {
+									if i == 0 {
+										vars += "?"
+									} else {
+										vars += ",?"
+									}
+								}
+								vars += ")"
+								db = db.Where(column+operator+vars, args)
+							} else {
+								db = db.Where(column+operator+"?", val)
+							}
+						} else if operator == "=" {
+							db = db.Where(column + " is null")
+						} else {
+							db = db.Where(column + " is not null")
 						}
 					}
 				}
-
 			}
 		}
 	}
 
-	return db, conds
+	return db
 }
 
-func SetOrder(db *gorm.DB, ptr reflect.Value, query url.Values, conds ...interface{}) (*gorm.DB, []interface{}) {
+func GetOperator(key string) string {
+	opt := map[string]string{
+		QueryOptEqual:              "=",
+		QueryOptNotEqual:           "!=",
+		QueryOptGreaterThan:        ">",
+		QueryOptGreaterThanOrEqual: ">=",
+		QueryOptLowerThan:          "<",
+		QueryOptLowerThanOrEqual:   "<=",
+		QueryOptLike:               " like ",
+		QueryOptNotLike:            " not like ",
+		QueryOptInsensitiveLike:    " like ",
+		QueryOptInsensitiveNotLike: " not like ",
+		QueryOptIn:                 " in ",
+		QueryOptNotIn:              " not in ",
+	}
+	res, _ := opt[key]
+	return res
+}
+
+func SetOrder(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
+	if ptr.Elem().Kind() == reflect.Slice {
+		ptr = reflect.New(ptr.Elem().Type().Elem())
+	}
 	v := ptr.Elem()
 	s, isExist := v.FieldByName("Sort").Interface().([]Sort)
 	if !isExist || len(s) == 0 {
-		ptr.MethodByName("SetSort").Call([]reflect.Value{})
+		setSort := ptr.MethodByName("SetSort")
+		if setSort.IsValid() {
+			setSort.Call([]reflect.Value{})
+		}
 	}
 
 	s, isExist = v.FieldByName("Sort").Interface().([]Sort)
@@ -277,154 +418,87 @@ func SetOrder(db *gorm.DB, ptr reflect.Value, query url.Values, conds ...interfa
 				o.Direction = "asc"
 			}
 			if o.JsonKey == "" {
-				db = db.Order(o.Column + " " + o.Direction)
+				db = db.Order(db.Statement.Quote(o.Column) + " " + o.Direction)
 			} else {
-				conds = append(conds, OrderByJSON(o.Column, o.JsonKey, o.Direction))
+				db = db.Order(QuoteJSON(db, o.Column, o.JsonKey) + " " + o.Direction)
 			}
 		}
 	}
-	return db, conds
+	return db
 }
 
-func SetSelect(db *gorm.DB, ptr reflect.Value, query url.Values, conds ...interface{}) (*gorm.DB, []interface{}) {
+func SetSelect(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 	v := ptr.Elem()
 	t := v.Type()
 	fields := []string{}
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		if field.Name != "Model" && field.Tag.Get("json") != "" && field.Tag.Get("json") != "-" && field.Type.Kind() != reflect.Slice {
-			alias := strings.ReplaceAll(field.Tag.Get("json"), ".", "__")
-			fields = append(fields, db.Statement.Quote(field.Tag.Get("db"))+" as "+alias)
+			fields = append(fields, db.Statement.Quote(field.Tag.Get("db"))+" as "+Quote(db, field.Tag.Get("json")))
 		}
 	}
-	return db.Select(strings.Join(fields, ",")), conds
+	return db.Select(strings.Join(fields, ","))
 }
 
 func SetPagination(db *gorm.DB, query url.Values) *gorm.DB {
+	if query.Get(QueryDisablePagination) == "true" {
+		return db
+	}
+	page, limit := GetPaginationQuery(query)
+	return db.Limit(limit).Offset((page - 1) * limit)
+}
+
+func GetPaginationQuery(query url.Values) (int, int) {
 	page := 1
-	perPage := 20
-	if query.Get("page") != "" {
-		pageTemp, _ := strconv.Atoi(query.Get("page"))
+	limit := DefaultLimit
+	if query.Get(QueryPage) != "" {
+		pageTemp, _ := strconv.Atoi(query.Get(QueryPage))
 		if pageTemp > 0 {
 			page = pageTemp
 		}
 	}
-	if query.Get("per_page") != "" {
-		perPageTemp, _ := strconv.Atoi(query.Get("per_page"))
-		if perPageTemp > 0 {
-			perPage = perPageTemp
-		}
-	}
-	return db.Limit(perPage).Offset((page - 1) * perPage)
-}
-
-// WhereJSONExpression json query expression, implements clause.Expression interface to use as querier
-type WhereJSONExpression struct {
-	column   string
-	jsonKey  string
-	operator string
-	value    interface{}
-}
-
-// WhereJSON query column as json
-func WhereJSON(column, jsonKey, operator string, value interface{}) *WhereJSONExpression {
-	return &WhereJSONExpression{
-		column:   column,
-		jsonKey:  jsonKey,
-		operator: operator,
-		value:    value,
-	}
-}
-
-// Build implements clause.Expression
-func (w *WhereJSONExpression) Build(builder clause.Builder) {
-	if stmt, ok := builder.(*gorm.Statement); ok {
-		switch stmt.Dialector.Name() {
-		case "mysql", "sqlite":
-			builder.WriteString("JSON_EXTRACT(" + stmt.Quote(w.column) + ",")
-			builder.AddVar(stmt, "$."+w.jsonKey)
-			builder.WriteByte(')')
-		case "sqlserver":
-			builder.WriteString("JSON_VALUE(" + stmt.Quote(w.column) + ",")
-			builder.AddVar(stmt, "$."+w.jsonKey)
-			builder.WriteByte(')')
-		case "postgres":
-			builder.WriteString(fmt.Sprintf("json_extract_path_text(%v::json,", stmt.Quote(w.column)))
-			keys := strings.Split(w.jsonKey, ".")
-			for idx, key := range keys {
-				if idx > 0 {
-					builder.WriteByte(',')
-				}
-				stmt.AddVar(builder, key)
-			}
-			builder.WriteByte(')')
-		default:
-			// unsupported json query
-			builder.WriteString(stmt.Quote(w.column))
-		}
-
-		stringVal, stringValOK := w.value.(string)
-		isNilValue := w.value == nil || (stringValOK && strings.ToLower(stringVal) == "null")
-		if isNilValue {
-			if w.operator == "=" {
-				w.operator = " IS "
-			} else if w.operator == "!=" {
-				w.operator = " IS NOT "
+	if query.Get(QueryLimit) != "" {
+		limitTemp, _ := strconv.Atoi(query.Get(QueryLimit))
+		if limitTemp > 0 {
+			if limitTemp > MaxLimit {
+				limit = MaxLimit
+			} else {
+				limit = limitTemp
 			}
 		}
-		builder.WriteString(w.operator)
+	}
+	return page, limit
+}
 
-		if isNilValue {
-			builder.WriteString("NULL")
-		} else {
-			builder.AddVar(stmt, fmt.Sprintf("%v", w.value))
-		}
+func Quote(db *gorm.DB, text string) string {
+	switch db.Dialector.Name() {
+	case "sqlite", "mysql":
+		return "`" + text + "`"
+	case "postgres", "sqlserver", "firebird":
+		return `"` + text + `"`
+	default:
+		return `"` + text + `"`
 	}
 }
 
-// OrderByJSONExpression implements clause.Expression interface to use as querier
-type OrderByJSONExpression struct {
-	column    string
-	jsonKey   string
-	direction string
-}
-
-func OrderByJSON(column, jsonKey, direction string) *OrderByJSONExpression {
-	return &OrderByJSONExpression{
-		column:    column,
-		jsonKey:   jsonKey,
-		direction: direction,
-	}
-}
-
-// Build implements clause.Expression
-func (o *OrderByJSONExpression) Build(builder clause.Builder) {
-	if stmt, ok := builder.(*gorm.Statement); ok {
-		switch stmt.Dialector.Name() {
-		case "mysql", "sqlite":
-			builder.WriteString("JSON_EXTRACT(" + stmt.Quote(o.column) + ",")
-			builder.AddVar(stmt, "$."+o.jsonKey)
-			builder.WriteByte(')')
-		case "sqlserver":
-			builder.WriteString("JSON_VALUE(" + stmt.Quote(o.column) + ",")
-			builder.AddVar(stmt, "$."+o.jsonKey)
-			builder.WriteByte(')')
-		case "postgres":
-			builder.WriteString(fmt.Sprintf("json_extract_path_text(%v::json,", stmt.Quote(o.column)))
-			keys := strings.Split(o.jsonKey, ".")
-			for idx, key := range keys {
-				if idx > 0 {
-					builder.WriteByte(',')
-				}
-				stmt.AddVar(builder, key)
+func QuoteJSON(db *gorm.DB, column, jsonKey string) string {
+	switch db.Dialector.Name() {
+	case "mysql", "sqlite":
+		return "JSON_EXTRACT(" + db.Statement.Quote(column) + ",$." + jsonKey + ")"
+	case "sqlserver":
+		return "JSON_VALUE(" + db.Statement.Quote(column) + ",$." + jsonKey + ")"
+	case "postgres":
+		keys := strings.Split(jsonKey, ".")
+		jsonPath := ""
+		for idx, key := range keys {
+			if idx > 0 {
+				jsonPath += ","
 			}
-			builder.WriteByte(')')
-		default:
-			// unsupported json query
-			builder.WriteString(stmt.Quote(o.column))
+			jsonPath += "'" + key + "'"
 		}
-
-		builder.WriteByte(' ')
-		builder.WriteString(o.direction)
+		return "json_extract_path_text(" + db.Statement.Quote(column) + "::json," + strings.Join(keys, ",") + ")"
+	default:
+		// unsupported json
+		return db.Statement.Quote(column)
 	}
 }
