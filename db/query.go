@@ -106,9 +106,9 @@ func First(db *gorm.DB, dest interface{}, query url.Values) error {
 		return errors.New("dest is not pointer")
 	}
 	res := map[string]interface{}{}
+	query.Add(QueryLimit, "1")
 	query.Add(QueryInclude, "all")
-	query.Add(QueryDisablePagination, "true")
-	rows := FindRows(db.Limit(1), reflect.ValueOf(dest), query)
+	rows := FindRows(db, reflect.ValueOf(dest), query)
 	if len(rows) > 0 {
 		res = rows[0]
 	}
@@ -184,8 +184,8 @@ func IncludeArray(db *gorm.DB, data map[string]interface{}, ptr reflect.Value, q
 					if valString, isOk := val.(string); isOk {
 						q := url.Values{}
 						q.Add(QueryDbField+"."+rel[0], valString)
-						query.Add(QueryInclude, "all")
-						query.Add(QueryDisablePagination, "true")
+						q.Add(QueryInclude, "all")
+						q.Add(QueryDisablePagination, "true")
 						data[jsonTag] = FindRows(db, reflect.New(field.Type.Elem()), q)
 					}
 				}
