@@ -9,15 +9,25 @@ import (
 
 var dbMigration = map[string]map[string]interface{}{}
 
-type MigrationTable interface {
+type MigrationTableInterface interface {
 	TableName() string
 	KeyField() string
 	ValueField() string
 	MigrationKey() string
 }
 
+type MigrationTable struct {
+	SettingTable
+}
+
+func (MigrationTable) MigrationKey() string {
+	return "table_versions"
+}
+
 func RegisterTable(connName string, tableStruct interface{}) error {
-	t, ok := tableStruct.(interface{ TableName() string })
+	t, ok := tableStruct.(interface {
+		TableName() string
+	})
 	if !ok {
 		return errors.New("RegisterTable: tableStruct has no method TableName")
 	}
@@ -33,38 +43,32 @@ func RegisterTable(connName string, tableStruct interface{}) error {
 	return nil
 }
 
-func Migrate(connName string, tx ...*gorm.DB) error {
-	conn, ok := dbConn[connName]
-	if !ok {
-		return errors.New("DB connection " + connName + " is not found")
-	}
-	db := conn.db
-	if len(tx) > 0 {
-		db = tx[0]
-	}
+func Migrate(tx *gorm.DB, connName string, migrationTable MigrationTableInterface) error {
+	tableName := Quote(tx, migrationTable.TableName())
+	keyField := Quote(tx, migrationTable.KeyField())
+	valueField := Quote(tx, migrationTable.ValueField())
+	migrationKey := migrationTable.MigrationKey()
 
-	mt := conn.migrationTable
-	err := db.AutoMigrate(&mt)
+	err := tx.AutoMigrate(&migrationTable)
 	if err != nil {
 		return err
 	}
 
-	where := map[string]interface{}{
-		mt.KeyField(): mt.MigrationKey(),
-	}
-
 	migrationData := map[string]interface{}{}
-	db.Table(mt.TableName()).Select(mt.ValueField() + " as value").Where(where).Take(&migrationData)
+	tx.Table(tableName).
+		Where(keyField+" = ?", migrationKey).
+		Select(valueField + " as " + Quote(tx, "value")).
+		First(&migrationData)
 
 	migrationMap := map[string]string{}
-	migrationJsonString, skOK := migrationData["value"]
-	if skOK {
+	migrationJsonString, isMigrationStringExist := migrationData["value"]
+	if isMigrationStringExist {
 		json.Unmarshal([]byte(migrationJsonString.(string)), &migrationMap)
 	}
 
-	dm, dmOK := dbMigration[connName]
-	if dmOK {
-		for tableName, tableStruct := range dm {
+	dbMigrations, isDbMigrationExist := dbMigration[connName]
+	if isDbMigrationExist {
+		for tableName, tableStruct := range dbMigrations {
 			tableVersion := "init"
 			tv, tvOK := tableStruct.(interface {
 				TableVersion() string
@@ -80,7 +84,7 @@ func Migrate(connName string, tx ...*gorm.DB) error {
 			}
 
 			if tableVersion != existingTableVersion {
-				err := db.AutoMigrate(&tableStruct)
+				err := tx.AutoMigrate(&tableStruct)
 				if err != nil {
 					return err
 				}
@@ -89,12 +93,14 @@ func Migrate(connName string, tx ...*gorm.DB) error {
 		}
 		migrationJson, err := json.Marshal(migrationMap)
 		if err == nil {
-			if skOK {
-				db.Table(mt.TableName()).Where(where).Update(mt.ValueField(), string(migrationJson))
+			if isMigrationStringExist {
+				tx.Table(tableName).
+					Where(keyField+" = ?", migrationKey).
+					Update(valueField, string(migrationJson))
 			} else {
-				migrationData[mt.KeyField()] = mt.MigrationKey()
-				migrationData[mt.ValueField()] = string(migrationJson)
-				db.Table(mt.TableName()).Create(migrationData)
+				migrationData[keyField] = migrationKey
+				migrationData[valueField] = string(migrationJson)
+				tx.Table(tableName).Create(migrationData)
 			}
 		}
 	}

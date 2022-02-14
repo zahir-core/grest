@@ -1,5 +1,7 @@
 package db
 
+import "time"
+
 type Schema interface {
 	TableVersion() string
 	TableName() string
@@ -11,6 +13,7 @@ type Schema interface {
 
 // json:
 // - dot notation field to be parsed to multi-dimensional json object
+// - also used for alias field when query to db
 //
 // db:
 // - field to query to db
@@ -100,4 +103,23 @@ func NewSort(column, direction string, jsonKey ...string) Sort {
 		s.JsonKey = jsonKey[0]
 	}
 	return s
+}
+
+type SettingTable struct {
+	Key       string `gorm:"primaryKey"`
+	Value     string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (SettingTable) TableName() string {
+	return "settings"
+}
+
+func (SettingTable) KeyField() string {
+	return "key"
+}
+
+func (SettingTable) ValueField() string {
+	return "value"
 }
