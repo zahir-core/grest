@@ -130,28 +130,28 @@ func (q *queryResult) Unmarshal(v ...interface{}) error {
 	return json.Unmarshal(b, dest)
 }
 
-func First(db *gorm.DB, dest interface{}, query url.Values) queryResult {
+func First(db *gorm.DB, dest interface{}, query url.Values) *queryResult {
 	if reflect.TypeOf(dest).Kind() != reflect.Ptr {
-		return queryResult{Error: gorm.ErrInvalidValue}
+		return &queryResult{Error: gorm.ErrInvalidValue}
 	}
 	query.Add(QueryLimit, "1")
 	query.Add(QueryInclude, "all")
 	rows := FindRows(db, reflect.ValueOf(dest), query)
 	if len(rows) > 0 {
-		return queryResult{Row: rows[0]}
+		return &queryResult{Row: rows[0]}
 	}
-	return queryResult{Error: gorm.ErrRecordNotFound}
+	return &queryResult{Error: gorm.ErrRecordNotFound}
 }
 
-func Find(db *gorm.DB, dest interface{}, query url.Values) queryResult {
+func Find(db *gorm.DB, dest interface{}, query url.Values) *queryResult {
 	if reflect.TypeOf(dest).Kind() != reflect.Ptr {
-		return queryResult{Error: gorm.ErrInvalidValue}
+		return &queryResult{Error: gorm.ErrInvalidValue}
 	}
 	rows := FindRows(db, reflect.ValueOf(dest), query)
 	if len(rows) > 0 {
-		return queryResult{Rows: rows}
+		return &queryResult{Rows: rows}
 	}
-	return queryResult{Error: gorm.ErrRecordNotFound}
+	return &queryResult{Error: gorm.ErrRecordNotFound}
 }
 
 func PaginationInfo(db *gorm.DB, dest interface{}, query url.Values) (int64, int64, int64, int64, error) {
