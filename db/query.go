@@ -138,7 +138,7 @@ func First(db *gorm.DB, dest interface{}, query url.Values) *queryResult {
 	query.Add(QueryInclude, "all")
 	rows := FindRows(db, reflect.ValueOf(dest), query)
 	if len(rows) > 0 {
-		return &queryResult{Row: rows[0]}
+		return &queryResult{Dest: dest, Row: rows[0]}
 	}
 	return &queryResult{Error: gorm.ErrRecordNotFound}
 }
@@ -149,7 +149,7 @@ func Find(db *gorm.DB, dest interface{}, query url.Values) *queryResult {
 	}
 	rows := FindRows(db, reflect.ValueOf(dest), query)
 	if len(rows) > 0 {
-		return &queryResult{Rows: rows}
+		return &queryResult{Dest: dest, Rows: rows}
 	}
 	return &queryResult{Error: gorm.ErrRecordNotFound}
 }
