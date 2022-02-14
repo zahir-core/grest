@@ -106,6 +106,118 @@ func TestSetGetCacheWithRedis(t *testing.T) {
 	checkGetCacheTestData(t, "Test get cache with redis", expected, result)
 }
 
+func TestDeleteWithKeyCacheWithRedis(t *testing.T) {
+	Configure(Config{RedisOptions: &redis.Options{}})
+	cacheKey1 := uuid.NewString()
+	cacheData1 := map[string]bool{"ok": true}
+	err := Set(cacheKey1, cacheData1)
+	if err != nil {
+		t.Errorf("Test set cache with redis : Error occurred [%v]", err)
+	}
+	result1 := map[string]bool{}
+	err = Get(cacheKey1, &result1)
+	if err != nil {
+		t.Errorf("Test get cache with redis : Error occurred [%v]", err)
+	}
+	if res1_ok, ok := result1["ok"]; !ok || !res1_ok {
+		t.Errorf("Test get cache with redis : Expected ok [true], got [%v]", ok)
+		t.Errorf("Test get cache with redis : Expected res1_ok [true], got [%v]", res1_ok)
+	}
+	err = DeleteWithPrefix(cacheKey1)
+	if err != nil {
+		t.Errorf("Test delete with prefix cache with redis : Error occurred [%v]", err)
+	}
+	result1_deleted := map[string]bool{}
+	Get(cacheKey1, &result1_deleted)
+	if res1_ok, ok := result1_deleted["ok"]; ok || res1_ok {
+		t.Errorf("Test delete with prefix cache with redis : Expected ok [false], got [%v]", ok)
+		t.Errorf("Test delete with prefix cache with redis : Expected res1_ok [false], got [%v]", res1_ok)
+	}
+
+	cacheKey2 := "foo.bar.baz?foo=bar"
+	cacheData2 := map[string]bool{"ok": true}
+	err = Set(cacheKey2, cacheData2)
+	if err != nil {
+		t.Errorf("Test set cache with redis : Error occurred [%v]", err)
+	}
+	result2 := map[string]bool{}
+	err = Get(cacheKey2, &result2)
+	if err != nil {
+		t.Errorf("Test get cache with redis : Error occurred [%v]", err)
+	}
+	if res2_ok, ok := result2["ok"]; !ok || !res2_ok {
+		t.Errorf("Test get cache with redis : Expected ok [true], got [%v]", ok)
+		t.Errorf("Test get cache with redis : Expected res2_ok [true], got [%v]", res2_ok)
+	}
+	err = DeleteWithPrefix(cacheKey2)
+	if err != nil {
+		t.Errorf("Test delete with prefix cache with redis : Error occurred [%v]", err)
+	}
+	result2_deleted := map[string]bool{}
+	Get(cacheKey2, &result2_deleted)
+	if res2_ok, ok := result2_deleted["ok"]; ok || res2_ok {
+		t.Errorf("Test delete with prefix cache with redis : Expected ok [false], got [%v]", ok)
+		t.Errorf("Test delete with prefix cache with redis : Expected res2_ok [false], got [%v]", res2_ok)
+	}
+}
+
+func TestDeleteWithPrefixCacheWithRedis(t *testing.T) {
+	Configure(Config{RedisOptions: &redis.Options{}})
+	prefix1 := "foo.bar.baz."
+	cacheKey1 := prefix1 + uuid.NewString()
+	cacheData1 := map[string]bool{"ok": true}
+	err := Set(cacheKey1, cacheData1)
+	if err != nil {
+		t.Errorf("Test set cache with redis : Error occurred [%v]", err)
+	}
+	result1 := map[string]bool{}
+	err = Get(cacheKey1, &result1)
+	if err != nil {
+		t.Errorf("Test get cache with redis : Error occurred [%v]", err)
+	}
+	if res1_ok, ok := result1["ok"]; !ok || !res1_ok {
+		t.Errorf("Test get cache with redis : Expected ok [true], got [%v]", ok)
+		t.Errorf("Test get cache with redis : Expected res1_ok [true], got [%v]", res1_ok)
+	}
+	err = DeleteWithPrefix(prefix1)
+	if err != nil {
+		t.Errorf("Test delete with prefix cache with redis : Error occurred [%v]", err)
+	}
+	result1_deleted := map[string]bool{}
+	Get(cacheKey1, &result1_deleted)
+	if res1_ok, ok := result1_deleted["ok"]; ok || res1_ok {
+		t.Errorf("Test delete with prefix cache with redis : Expected ok [false], got [%v]", ok)
+		t.Errorf("Test delete with prefix cache with redis : Expected res1_ok [false], got [%v]", res1_ok)
+	}
+
+	prefix2 := "foo.bar.baz?"
+	cacheKey2 := prefix2 + "foo=bar"
+	cacheData2 := map[string]bool{"ok": true}
+	err = Set(cacheKey2, cacheData2)
+	if err != nil {
+		t.Errorf("Test set cache with redis : Error occurred [%v]", err)
+	}
+	result2 := map[string]bool{}
+	err = Get(cacheKey2, &result2)
+	if err != nil {
+		t.Errorf("Test get cache with redis : Error occurred [%v]", err)
+	}
+	if res2_ok, ok := result2["ok"]; !ok || !res2_ok {
+		t.Errorf("Test get cache with redis : Expected ok [true], got [%v]", ok)
+		t.Errorf("Test get cache with redis : Expected res2_ok [true], got [%v]", res2_ok)
+	}
+	err = DeleteWithPrefix(prefix2)
+	if err != nil {
+		t.Errorf("Test delete with prefix cache with redis : Error occurred [%v]", err)
+	}
+	result2_deleted := map[string]bool{}
+	Get(cacheKey2, &result2_deleted)
+	if res2_ok, ok := result2_deleted["ok"]; ok || res2_ok {
+		t.Errorf("Test delete with prefix cache with redis : Expected ok [false], got [%v]", ok)
+		t.Errorf("Test delete with prefix cache with redis : Expected res2_ok [false], got [%v]", res2_ok)
+	}
+}
+
 func BenchmarkSetGetCacheWithoutRedis(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
@@ -128,5 +240,26 @@ func BenchmarkSetGetCacheWithRedis(b *testing.B) {
 			result := person{}
 			err = Get(cacheKey, &result)
 		}
+	}
+}
+
+func BenchmarkSetDeleteWithKeyCacheWithRedis(b *testing.B) {
+	Configure(Config{RedisOptions: &redis.Options{}})
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		cacheKey := uuid.NewString()
+		Set(cacheKey, map[string]bool{"ok": true})
+		Delete(cacheKey)
+	}
+}
+
+func BenchmarkSetDeleteWithPrefixCacheWithRedis(b *testing.B) {
+	prefix := "foo.bar.baz."
+	Configure(Config{RedisOptions: &redis.Options{}})
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		cacheKey := prefix + uuid.NewString()
+		Set(cacheKey, map[string]bool{"ok": true})
+		DeleteWithPrefix(prefix)
 	}
 }

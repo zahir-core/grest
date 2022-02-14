@@ -92,7 +92,7 @@ func DeleteWithPrefix(prefix string) error {
 		for {
 			var keys []string
 			var err error
-			keys, cursor, err = rdb.Scan(bgCtx, cursor, prefix+":*", 0).Result()
+			keys, cursor, err = rdb.Scan(bgCtx, cursor, prefix+"*", 0).Result()
 			if err != nil {
 				return err
 			}
