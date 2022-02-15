@@ -151,7 +151,7 @@ func Find(db *gorm.DB, dest interface{}, query url.Values) *queryResult {
 	if len(rows) > 0 {
 		return &queryResult{Dest: dest, Rows: rows}
 	}
-	return &queryResult{Error: gorm.ErrRecordNotFound}
+	return &queryResult{Error: gorm.ErrRecordNotFound, Rows: rows}
 }
 
 func PaginationInfo(db *gorm.DB, dest interface{}, query url.Values) (int64, int64, int64, int64, error) {
@@ -210,6 +210,8 @@ func IncludeArray(db *gorm.DB, data map[string]interface{}, ptr reflect.Value, q
 						data[jsonTag] = FindRows(db, reflect.New(field.Type.Elem()), q)
 					}
 				}
+			} else {
+				data[jsonTag] = []map[string]interface{}{}
 			}
 		}
 	}

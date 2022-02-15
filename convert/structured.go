@@ -48,14 +48,19 @@ func (j jsonData) toStructuredMap(m map[string]interface{}, sep Separator) map[s
 		}
 		slc, isSlice := v.([]interface{})
 		if isSlice {
-			for i, s := range slc {
-				iString := strconv.Itoa(i)
-				sliceMap, isSliceMap := s.(map[string]interface{})
-				if isSliceMap {
-					jsonByte, _ = sjson.SetBytes(jsonByte, k+"."+iString, j.toStructuredMap(sliceMap, sep))
-				} else if s != nil {
-					jsonByte, _ = sjson.SetBytes(jsonByte, k+"."+iString, s)
+			if len(slc) > 0 {
+				for i, s := range slc {
+					iString := strconv.Itoa(i)
+					sliceMap, isSliceMap := s.(map[string]interface{})
+					if isSliceMap {
+						jsonByte, _ = sjson.SetBytes(jsonByte, k+"."+iString, j.toStructuredMap(sliceMap, sep))
+					} else if s != nil {
+						jsonByte, _ = sjson.SetBytes(jsonByte, k+"."+iString, s)
+					}
 				}
+			} else {
+				jsonByte, _ = sjson.SetBytes(jsonByte, k, []interface{}{})
+
 			}
 		} else if v != nil {
 			jsonByte, _ = sjson.SetBytes(jsonByte, k, v)
