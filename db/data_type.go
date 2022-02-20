@@ -375,6 +375,16 @@ func (n NullString) IsZero() bool {
 	return !n.Valid
 }
 
+// GormDataType returns gorm common data type. This type is used for the field's column type.
+func (NullString) GormDataType() string {
+	return "varchar(255)"
+}
+
+// GormDBDataType returns gorm DB data type based on the current using database.
+func (NullString) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+	return "varchar(255)"
+}
+
 // NullDateTime is a nullable time.Time.
 // It supports SQL and JSON serialization.
 type NullDateTime struct {
