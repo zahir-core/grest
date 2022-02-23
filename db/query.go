@@ -386,7 +386,7 @@ func SetWhere(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 								vars += ")"
 								db = db.Where(column+operator+vars, args)
 							} else {
-								if (operator == QueryOptLike || operator == QueryOptNotLike) && !strings.Contains(val, "%") {
+								if strings.Contains(operator, "like") && !strings.Contains(val, "%") {
 									val = "%" + val + "%"
 								}
 								db = db.Where(column+operator+"?", val)
@@ -425,6 +425,9 @@ func GetOperator(key string) string {
 }
 
 func SetOrder(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
+	if ptr.Elem().Kind() == reflect.Slice {
+		ptr = reflect.New(ptr.Elem().Type().Elem())
+	}
 	v := ptr.Elem()
 	qSorts := strings.Split(query.Get(QuerySort), ",")
 	if len(qSorts) > 0 {
@@ -495,10 +498,21 @@ func SetSelect(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 	v := ptr.Elem()
 	t := v.Type()
 	fields := []string{}
+	selected := strings.Split(query.Get(QuerySelect), ",")
+	hasSelected := func(field string) bool {
+		for _, s := range selected {
+			if field == s {
+				return true
+			}
+		}
+		return false
+	}
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		if field.Name != "Model" && field.Tag.Get("json") != "" && field.Tag.Get("json") != "-" && field.Type.Kind() != reflect.Slice {
-			fields = append(fields, db.Statement.Quote(field.Tag.Get("db"))+" as "+Quote(db, field.Tag.Get("json")))
+			if len(selected) == 0 || hasSelected(field.Tag.Get("json")) {
+				fields = append(fields, db.Statement.Quote(field.Tag.Get("db"))+" as "+Quote(db, field.Tag.Get("json")))
+			}
 		}
 	}
 	return db.Select(strings.Join(fields, ","))

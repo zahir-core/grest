@@ -17,10 +17,12 @@ func TestQuery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error occured : [%v]", err.Error())
 	}
+	articles := []Article{}
 	q := url.Values{}
 	q.Add("detail.path.to.detail.$like", "some detail")
 	q.Add("$sort", "author.name,-detail.path.to.detail:i,title:i,-updated_at")
-	Find(db, &Article{}, q)
+	q.Add("$select", "title,author.name")
+	Find(db, &articles, q)
 }
 
 func NewMockDB() (*gorm.DB, error) {
@@ -50,7 +52,7 @@ type Article struct {
 	AuthorID    NullUUID     `json:"author.id"    db:"a.author_id"`
 	AuthorName  NullString   `json:"author.name"  db:"u.name"`
 	AuthorEmail NullString   `json:"author.email" db:"u.email"`
-	Categories  []Category   `json:"categories"   db:"c.user_id=id"`
+	Categories  []Category   `json:"categories"   db:"ac.article_id=id"`
 	Detail      NullJSON     `json:"detail"       db:"a.detail"`
 	IsActive    NullBool     `json:"is_active"    db:"a.is_active"`
 	CreatedAt   NullDateTime `json:"created_at"   db:"a.created_at"`
@@ -94,6 +96,7 @@ type Category struct {
 	CreatedAt   NullDateTime `json:"created.time" db:"c.created_at"`
 	UpdatedAt   NullDateTime `json:"updated.time" db:"c.updated_at"`
 	DeletedAt   NullDateTime `json:"deleted.time" db:"c.deleted_at"`
+	ArticleID   NullUUID     `json:"-"            db:"ac.article_id"`
 }
 
 func (Category) TableName() string {
@@ -109,5 +112,6 @@ func (Category) TableAliasName() string {
 }
 
 func (c *Category) SetRelation() {
+	c.Relation = append(c.Relation, NewRelation("inner", "articles_categories", "ac", []Filter{{Column: "ac.category_id", Column2: "c.id"}}))
 	c.Relation = append(c.Relation, NewRelation("left", "users", "u", []Filter{{Column: "u.id", Column2: "c.author_id"}}))
 }
