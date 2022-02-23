@@ -58,7 +58,7 @@ func Migrate(tx *gorm.DB, connName string, migrationTable MigrationTableInterfac
 	tx.Table(tableName).
 		Where(keyField+" = ?", migrationKey).
 		Select(valueField + " as " + Quote(tx, "value")).
-		First(&migrationData)
+		Take(&migrationData)
 
 	migrationMap := map[string]string{}
 	migrationJsonString, isMigrationStringExist := migrationData["value"]

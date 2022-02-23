@@ -42,7 +42,7 @@ func RunSeed(tx *gorm.DB, connName string, seedTable SeedTableInterface) error {
 	tx.Table(tableName).
 		Where(keyField+" = ?", seedKey).
 		Select(valueField + " as " + Quote(tx, "value")).
-		First(&seedData)
+		Take(&seedData)
 
 	seedMap := map[string]bool{}
 	seedJsonString, isSeedStringExist := seedData["value"]
