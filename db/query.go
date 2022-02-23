@@ -360,7 +360,7 @@ func SetWhere(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 					column := dbTag
 					if field.Type.Name() == "NullJSON" {
 						jsonKey := strings.Join(subkey[1:], ".")
-						column = QuoteJSON(db, column, strings.ReplaceAll(jsonKey, lastSubkey, ""))
+						column = QuoteJSON(db, column, strings.ReplaceAll(jsonKey, "."+lastSubkey, ""))
 					} else {
 						column = db.Statement.Quote(column)
 					}
@@ -386,6 +386,9 @@ func SetWhere(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 								vars += ")"
 								db = db.Where(column+operator+vars, args)
 							} else {
+								if (operator == QueryOptLike || operator == QueryOptNotLike) && !strings.Contains(val, "%") {
+									val = "%" + val + "%"
+								}
 								db = db.Where(column+operator+"?", val)
 							}
 						} else if operator == "=" {
@@ -422,10 +425,48 @@ func GetOperator(key string) string {
 }
 
 func SetOrder(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
+	v := ptr.Elem()
+	qSorts := strings.Split(query.Get(QuerySort), ",")
+	if len(qSorts) > 0 {
+		for _, qs := range qSorts {
+			direction := "asc"
+			if qs[0:1] == "-" {
+				qs = qs[1:]
+				direction = "desc"
+			}
+			isCaseInsensitive := false
+			ci := strings.Split(qs, ":")
+			if len(ci) > 1 && ci[1] == "i" {
+				qs = ci[0]
+				isCaseInsensitive = true
+			}
+			column := ""
+			t := v.Type()
+			for i := 0; i < t.NumField(); i++ {
+				field := t.Field(i)
+				if field.Name != "Model" && field.Type.Kind() != reflect.Slice {
+					jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
+					dbTag := strings.Split(field.Tag.Get("db"), ",")[0]
+					subKey := strings.Split(qs, ".")
+					if qs == jsonTag {
+						column = db.Statement.Quote(dbTag)
+					} else if field.Type.Name() == "NullJSON" && subKey[0] == jsonTag {
+						column = QuoteJSON(db, dbTag, strings.Join(subKey[1:], "."))
+					}
+				}
+			}
+			if column != "" {
+				if isCaseInsensitive {
+					column = "lower(" + column + ")"
+				}
+				db = db.Order(column + " " + direction)
+			}
+		}
+		return db
+	}
 	if ptr.Elem().Kind() == reflect.Slice {
 		ptr = reflect.New(ptr.Elem().Type().Elem())
 	}
-	v := ptr.Elem()
 	s, isExist := v.FieldByName("Sort").Interface().([]Sort)
 	if !isExist || len(s) == 0 {
 		setSort := ptr.MethodByName("SetSort")
@@ -519,7 +560,7 @@ func QuoteJSON(db *gorm.DB, column, jsonKey string) string {
 			}
 			jsonPath += "'" + key + "'"
 		}
-		return "json_extract_path_text(" + db.Statement.Quote(column) + "::json," + strings.Join(keys, ",") + ")"
+		return "json_extract_path_text(" + db.Statement.Quote(column) + "::json," + jsonPath + ")"
 	default:
 		// unsupported json
 		return db.Statement.Quote(column)
