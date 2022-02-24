@@ -22,6 +22,7 @@ func TestQuery(t *testing.T) {
 	q.Add("detail.path.to.detail.$like", "some detail")
 	q.Add("$sort", "author.name,-detail.path.to.detail:i,title:i,-updated_at")
 	q.Add("$select", "title,author.name")
+	q.Add("$search", "title,content,author.name=john")
 	Find(db, &articles, q)
 }
 

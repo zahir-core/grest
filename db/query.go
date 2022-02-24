@@ -2,6 +2,7 @@ package db
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/url"
 	"reflect"
@@ -334,6 +335,25 @@ func SetWhere(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 			}
 		}
 	}
+	qs := strings.Split(query.Get(QuerySearch), "=")
+	if len(qs) > 1 {
+		keySearch := ""
+		valSearch := ""
+		for i, s := range strings.Split(qs[0], ",") {
+			if i == 0 {
+				keySearch = s + "." + QueryOptInsensitiveLike
+				valSearch = qs[1]
+			} else {
+				valSearch += QueryOr + s + "." + QueryOptInsensitiveLike + "=" + qs[1]
+			}
+		}
+		if keySearch != "" && valSearch != "" {
+			query.Add(keySearch, valSearch)
+		}
+	}
+	b, _ := json.MarshalIndent(query, "", "  ")
+	fmt.Println(string(b))
+
 	t := v.Type()
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
