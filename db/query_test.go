@@ -19,10 +19,11 @@ func TestQuery(t *testing.T) {
 	}
 	articles := []Article{}
 	q := url.Values{}
+	q.Add("title.$in", "a,b,c,d,e,f,g")
 	q.Add("$or", "author.name.$ilike=john||is_active=true")
 	q.Add("detail.path.to.detail.$like", "some detail")
 	q.Add("$sort", "author.name,-detail.path.to.detail:i,title:i,-updated_at")
-	q.Add("$select", "title,author.name")
+	q.Add("$group", "title,author.name")
 	q.Add("$search", "title,content,author.name=john")
 	Find(db, &articles, q)
 }
