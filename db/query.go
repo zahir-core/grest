@@ -175,7 +175,7 @@ func FindRows(db *gorm.DB, rv reflect.Value, query url.Values) []map[string]inte
 	tx = SetPagination(tx, query)
 	tx.Find(&rows)
 	for i, v := range rows {
-		rows[i] = IncludeArray(db, v, rv, query)
+		rows[i] = IncludeArray(db, FixDataType(v, rv), rv, query)
 	}
 	return rows
 }
@@ -189,6 +189,27 @@ func QueryBuilder(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 	db = SetWhere(db, ptr, query)
 	db = SetSelect(db, ptr, query)
 	return db
+}
+
+func FixDataType(data map[string]interface{}, ptr reflect.Value) map[string]interface{} {
+	if ptr.Elem().Kind() == reflect.Slice {
+		ptr = reflect.New(ptr.Elem().Type().Elem())
+	}
+	v := ptr.Elem()
+	t := v.Type()
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		if field.Type.Name() == "NullBool" {
+			for key, val := range data {
+				if field.Tag.Get("json") == key {
+					b := NullBool{}
+					b.Scan(val)
+					data[key] = b
+				}
+			}
+		}
+	}
+	return data
 }
 
 func IncludeArray(db *gorm.DB, data map[string]interface{}, ptr reflect.Value, query url.Values) map[string]interface{} {
