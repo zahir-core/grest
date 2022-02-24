@@ -47,7 +47,6 @@ var (
 	QueryOptInsensitiveNotLike = "$nilike" // ex: /contacts?name.$nilike=john%         => sql: select * from contacts where lower(name) not like lower('john%')
 	QueryOptIn                 = "$in"     // ex: /contacts?age.$in=17,21,34           => sql: select * from contacts where age in (17,21,34)
 	QueryOptNotIn              = "$nin"    // ex: /contacts?age.$nin=17,21,34          => sql: select * from contacts where age not in (17,21,34)
-	QueryOr                    = "||"      // ex: /contacts?gender=female||age.$lt=10  => sql: select * from contacts where (gender = 'female' or age < 10)
 	QuerySearch                = "$search" // ex: /contacts?$search=code,name=john     => sql: select * from contacts where (lower(code) = lower('john') or lower(name) = lower('john'))
 
 	// sorting query params setting
@@ -60,6 +59,11 @@ var (
 
 	// ===== Advance Query Params =====
 	// it combined by another query params
+
+	// or query params setting
+	// ex: /contacts?$or=gender=female||age.$lt=10&$or=is_salesman=true||is_employee=true  => sql: select * from contacts where (gender = 'female' or age < 10) and (is_salesman = '1' or is_employee = '1')
+	QueryOr          = "$or"
+	QueryOrDelimiter = "||"
 
 	// field query params setting
 	// useful for filter, select or sort using another field
@@ -337,18 +341,16 @@ func SetWhere(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 	}
 	qs := strings.Split(query.Get(QuerySearch), "=")
 	if len(qs) > 1 {
-		keySearch := ""
 		valSearch := ""
 		for i, s := range strings.Split(qs[0], ",") {
 			if i == 0 {
-				keySearch = s + "." + QueryOptInsensitiveLike
-				valSearch = qs[1]
+				valSearch += s + "." + QueryOptInsensitiveLike + "=" + qs[1]
 			} else {
-				valSearch += QueryOr + s + "." + QueryOptInsensitiveLike + "=" + qs[1]
+				valSearch += QueryOrDelimiter + s + "." + QueryOptInsensitiveLike + "=" + qs[1]
 			}
 		}
-		if keySearch != "" && valSearch != "" {
-			query.Add(keySearch, valSearch)
+		if valSearch != "" {
+			query.Add(QueryOr, valSearch)
 		}
 	}
 	b, _ := json.MarshalIndent(query, "", "  ")

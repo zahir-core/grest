@@ -19,6 +19,7 @@ func TestQuery(t *testing.T) {
 	}
 	articles := []Article{}
 	q := url.Values{}
+	q.Add("$or", "author.name.$ilike=john||is_active=true")
 	q.Add("detail.path.to.detail.$like", "some detail")
 	q.Add("$sort", "author.name,-detail.path.to.detail:i,title:i,-updated_at")
 	q.Add("$select", "title,author.name")
