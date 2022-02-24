@@ -1,10 +1,10 @@
-# gREST
+# GREST
 
 > An instant, full-featured, and scalable REST APIs framework with go. Designed to make rapid development easy with clean code and best performance.
 > 
 > It takes care of a lot of the complexities of developing REST APIs so you can focus on the business logic of your app. Build prototypes in minutes and production-ready apps in days. **Seriously**.
 > 
-> gREST gives you the structure to build service oriented apps from day one. When you eventually need to split your app into microservices it’s an easy transition.
+> GREST gives you the structure to build service oriented apps from day one. When you eventually need to split your app into microservices it’s an easy transition.
 
 ## Feature
 
@@ -15,19 +15,19 @@
   - [x] Configuration
   - [ ] Testing
   - [ ] Deployment
-- [ ] Basic
+- [x] Basic
   - [x] Routing
   - [x] Middleware
-  - [ ] Request
-  - [ ] Response
-  - [ ] Model
-  - [ ] Validation
+  - [x] Request
+  - [x] Response
+  - [x] Model
+  - [X] Validation
   - [x] Error Handling
   - [ ] Logging
-- [ ] Database
+- [x] Database
   - [x] Connecting to Database
-  - [ ] CRUD
-  - [ ] Query Builder
+  - [x] CRUD
+  - [x] Query Builder
   - [x] Migration
   - [x] Seed
   - [x] Cache
@@ -40,24 +40,28 @@
 - [ ] Client
   - [x] HTTP Client
   - [ ] gRPC Client
-- [ ] Notification
-  - [ ] Mail
+- [x] Notification
+  - [x] Mail
   - [x] Telegram
-  - [ ] Slack
+  - [x] Slack
 - [ ] More
   - [ ] Swagger API Documentation
   - [ ] Frontend Integration
-  - [ ] File Storage
+  - [x] File Storage
   - [x] Translation
   - [ ] Websocket
   - [ ] gRPC Server
-  - [ ] Scheduling
+  - [x] Scheduling
   - [ ] Queue
   - [ ] Event
 
+## Getting Started
+
+_Coming Soon..._
+
 ## Inspired By
 
-Originally, gREST inspired by the following frameworks, however we did it with a different approach, complementing its features, making it easier to use and more flexible with optimal performance and of course with [Go](https://go.dev) ways.
+Originally, GREST inspired by the following frameworks, however we did it with a different approach, complementing its features, making it easier to use and more flexible with optimal performance and of course with [Go](https://go.dev) ways.
 
 - [Feathers](https://feathersjs.com) — A framework for real-time applications and REST APIs.
 - [LoopBack](https://loopback.io) — A highly extensible Node.js and TypeScript framework for building APIs and microservices.
@@ -66,13 +70,12 @@ Originally, gREST inspired by the following frameworks, however we did it with a
 
 ## Library
 
-gREST is REST APIs framework with a "batteries-included" philosophy, it means that gREST comes with most of the libraries and tools required for common use cases, out of the box, so you can focus on the business logic of your application instead of choosing libraries and tools or creating your own. To help realize that philosophy gREST use the following libraries and tools:
+GREST is REST APIs framework with a "batteries-included" philosophy, it means that GREST comes with most of the libraries and tools required for common use cases, out of the box, so you can focus on the business logic of your application instead of choosing libraries and tools or creating your own. Thanks to the following libraries and tools that help GREST realize that philosophy :
 
 - [Fiber](https://gofiber.io) — An Express-inspired web framework written in Go.
 - [GORM](https://gorm.io) — The fantastic ORM library for Golang.
 - [go-redis](https://redis.uptrace.dev) — Redis client for Golang.
 - [zap](https://github.com/uber-go/zap) — Blazing fast, structured, leveled logging in Go.
-- [GJSON](https://github.com/tidwall/gjson) — Go package that provides a fast and simple way to get values from a json document.
 - [SJSON](https://github.com/tidwall/sjson) — Go package that provides a very fast and simple way to set a value in a json document.
 - [Swagger UI](https://github.com/swagger-api/swagger-ui) — Visualize OpenAPI Specification definition in an interactive UI.
 - [Package validator](https://github.com/go-playground/validator) — Package validator implements value validations for structs and individual fields based on tags.
@@ -81,7 +84,7 @@ gREST is REST APIs framework with a "batteries-included" philosophy, it means th
 
 ## Contribute
 
-You can help to deliver a better gREST by the following ways:
+You can help to deliver a better GREST by the following ways:
 
 - Reporting issues
 - Suggesting new features or enhancements
@@ -97,8 +100,8 @@ You can help to deliver a better gREST by the following ways:
   - Tweet about the project on your Twitter.
   - Write a review or tutorial on your youtube channel or personal blog.
 
-By contributing to gREST, you agree that your contributions will be licensed under its MIT license.
+By contributing to GREST, you agree that your contributions will be licensed under its MIT license.
 
 ## License
 
-gREST officialy created, used, and maintained by [Zahir](https://zahiraccounting.com) Core Team. gREST is free and open-source software licensed under the [MIT License](https://github.com/zahir-core/grest/blob/main/LICENSE).
+GREST officialy created, used, and maintained by [Zahir](https://zahir.co.id) Core Team. GREST is free and open-source software licensed under the [MIT License](https://github.com/zahir-core/GREST/blob/main/LICENSE).
