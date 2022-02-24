@@ -351,10 +351,10 @@ func SetWhere(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 		}
 		if valSearch != "" {
 			query.Add(QueryOr, valSearch)
+			b, _ := json.MarshalIndent(query, "", "  ")
+			fmt.Println(string(b))
 		}
 	}
-	b, _ := json.MarshalIndent(query, "", "  ")
-	fmt.Println(string(b))
 
 	t := v.Type()
 	for i := 0; i < t.NumField(); i++ {
@@ -391,6 +391,13 @@ func SetWhere(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 						if len(colVal) > 1 {
 							db = db.Where(column + operator + db.Statement.Quote(colVal[1]))
 						} else if val != "null" {
+							if field.Type.Name() == "NullBool" {
+								if val == "true" {
+									val = "1"
+								} else if val == "false" {
+									val = "0"
+								}
+							}
 							if lastSubkey == QueryOptInsensitiveLike || lastSubkey == QueryOptInsensitiveNotLike {
 								column = "lower(" + column + ")"
 								val = strings.ToLower(val)
