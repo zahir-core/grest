@@ -450,7 +450,7 @@ func SetOrder(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 	}
 	v := ptr.Elem()
 	qSorts := strings.Split(query.Get(QuerySort), ",")
-	if len(qSorts) > 0 {
+	if len(qSorts) > 0 && qSorts[0] != "" {
 		for _, qs := range qSorts {
 			direction := "asc"
 			if qs[0:1] == "-" {
