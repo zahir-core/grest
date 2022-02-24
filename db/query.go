@@ -532,7 +532,7 @@ func SetSelect(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		if field.Name != "Model" && field.Tag.Get("json") != "" && field.Tag.Get("json") != "-" && field.Type.Kind() != reflect.Slice {
-			if len(selected) == 0 || hasSelected(field.Tag.Get("json")) {
+			if len(selected) == 0 || selected[0] == "" || hasSelected(field.Tag.Get("json")) {
 				fields = append(fields, db.Statement.Quote(field.Tag.Get("db"))+" as "+Quote(db, field.Tag.Get("json")))
 			}
 		}
