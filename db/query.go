@@ -364,12 +364,31 @@ func SetJoin(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 	return db
 }
 
-func SetWhere(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
-	v := ptr.Elem()
-	f, isExist := v.FieldByName("Filter").Interface().([]Filter)
+func SetWhere(baseDB *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
+	db := baseDB.Session(&gorm.Session{})
+	setOperator := func(key string) string {
+		opt := map[string]string{
+			QueryOptEqual:              "=",
+			QueryOptNotEqual:           "!=",
+			QueryOptGreaterThan:        ">",
+			QueryOptGreaterThanOrEqual: ">=",
+			QueryOptLowerThan:          "<",
+			QueryOptLowerThanOrEqual:   "<=",
+			QueryOptLike:               " like ",
+			QueryOptNotLike:            " not like ",
+			QueryOptInsensitiveLike:    " like ",
+			QueryOptInsensitiveNotLike: " not like ",
+			QueryOptIn:                 " in ",
+			QueryOptNotIn:              " not in ",
+		}
+		res, _ := opt[key]
+		return res
+	}
+	// filter from schema
+	f, isExist := ptr.Elem().FieldByName("Filter").Interface().([]Filter)
 	if !isExist || len(f) == 0 {
 		CallMethod(ptr, "SetFilter", []reflect.Value{})
-		f, isExist = v.FieldByName("Filter").Interface().([]Filter)
+		f, isExist = ptr.Elem().FieldByName("Filter").Interface().([]Filter)
 	}
 	if isExist {
 		for _, w := range f {
@@ -393,41 +412,8 @@ func SetWhere(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 			}
 		}
 	}
-	qs := strings.Split(query.Get(QuerySearch), "=")
-	if len(qs) > 1 {
-		valSearch := strings.Builder{}
-		for i, s := range strings.Split(qs[0], ",") {
-			if i == 0 {
-				valSearch.WriteString(s + "." + QueryOptInsensitiveLike + "=" + qs[1])
-			} else {
-				valSearch.WriteString(QueryOrDelimiter + s + "." + QueryOptInsensitiveLike + "=" + qs[1])
-			}
-		}
-		if valSearch.Len() > 0 {
-			query.Add(QueryOr, valSearch.String())
-			b, _ := json.MarshalIndent(query, "", "  ")
-			fmt.Println(string(b))
-		}
-	}
-	setOperator := func(key string) string {
-		opt := map[string]string{
-			QueryOptEqual:              "=",
-			QueryOptNotEqual:           "!=",
-			QueryOptGreaterThan:        ">",
-			QueryOptGreaterThanOrEqual: ">=",
-			QueryOptLowerThan:          "<",
-			QueryOptLowerThanOrEqual:   "<=",
-			QueryOptLike:               " like ",
-			QueryOptNotLike:            " not like ",
-			QueryOptInsensitiveLike:    " like ",
-			QueryOptInsensitiveNotLike: " not like ",
-			QueryOptIn:                 " in ",
-			QueryOptNotIn:              " not in ",
-		}
-		res, _ := opt[key]
-		return res
-	}
-	t := v.Type()
+	// filter from query except $search & $or
+	t := ptr.Elem().Type()
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		if field.Name != "Model" && field.Type.Kind() != reflect.Slice {
@@ -488,6 +474,39 @@ func SetWhere(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 						}
 					}
 				}
+			}
+		}
+	}
+	// filter from query $search
+	qs := strings.Split(query.Get(QuerySearch), "=")
+	if len(qs) > 1 {
+		valSearch := strings.Builder{}
+		for i, s := range strings.Split(qs[0], ",") {
+			if i == 0 {
+				valSearch.WriteString(s + "." + QueryOptInsensitiveLike + "=" + qs[1])
+			} else {
+				valSearch.WriteString(QueryOrDelimiter + s + "." + QueryOptInsensitiveLike + "=" + qs[1])
+			}
+		}
+		if valSearch.Len() > 0 {
+			query.Add(QueryOr, valSearch.String())
+		}
+	}
+	// filter from query $or
+	for key, sv := range query {
+		if key == QueryOr {
+			b, _ := json.MarshalIndent(sv, "", "  ")
+			fmt.Println(string(b))
+			for _, orQuery := range sv {
+				orDB := baseDB.Session(&gorm.Session{})
+				orQ := strings.Split(orQuery, QueryOrDelimiter)
+				for _, orStr := range orQ {
+					or := strings.Split(orStr, "=")
+					if len(or) > 1 {
+						fmt.Println("in progress")
+					}
+				}
+				db = db.Where(orDB)
 			}
 		}
 	}
