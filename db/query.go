@@ -491,7 +491,7 @@ func SetWhere(baseDB *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 	for orKey, sv := range query {
 		if orKey == QueryOr {
 			for _, orQuery := range sv {
-				orDB := baseDB.Session(&gorm.Session{})
+				orDB := baseDB.Session(&gorm.Session{DryRun: true})
 				orQ := strings.Split(orQuery, QueryOrDelimiter)
 				for _, orStr := range orQ {
 					or := strings.Split(orStr, "=")
