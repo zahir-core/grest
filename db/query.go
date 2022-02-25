@@ -2,7 +2,6 @@ package db
 
 import (
 	"encoding/json"
-	"fmt"
 	"math"
 	"net/url"
 	"reflect"
@@ -228,13 +227,13 @@ func GetPaginationQuery(query url.Values) (int64, int64) {
 }
 
 func fixDataType(data map[string]interface{}, ptr reflect.Value) map[string]interface{} {
-	v := ptr.Elem()
-	t := v.Type()
+	t := ptr.Elem().Type()
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		if field.Type.Name() == "NullBool" {
+			jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
 			for key, val := range data {
-				if field.Tag.Get("json") == key {
+				if key == jsonTag {
 					b := NullBool{}
 					b.Scan(val)
 					data[key] = b
@@ -246,8 +245,7 @@ func fixDataType(data map[string]interface{}, ptr reflect.Value) map[string]inte
 }
 
 func IncludeArray(db *gorm.DB, data map[string]interface{}, ptr reflect.Value, query url.Values) map[string]interface{} {
-	v := ptr.Elem()
-	t := v.Type()
+	t := ptr.Elem().Type()
 	includes := strings.Split(query.Get(QueryInclude), ",")
 	isIncludeAll := len(includes) > 0 && includes[0] == "all"
 	for i := 0; i < t.NumField(); i++ {
@@ -318,14 +316,13 @@ func SetTable(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 }
 
 func SetJoin(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
-	v := ptr.Elem()
-	r, isExist := v.FieldByName("Relation").Interface().([]Relation)
-	if !isExist || len(r) == 0 {
+	relations, isExist := ptr.Elem().FieldByName("Relation").Interface().([]Relation)
+	if !isExist || len(relations) == 0 {
 		CallMethod(ptr, "SetRelation", []reflect.Value{})
-		r, isExist = v.FieldByName("Relation").Interface().([]Relation)
+		relations, isExist = ptr.Elem().FieldByName("Relation").Interface().([]Relation)
 	}
 	if isExist {
-		for _, rel := range r {
+		for _, rel := range relations {
 			joinQuery := strings.Builder{}
 			if !strings.HasSuffix(strings.ToLower(rel.JoinType), "join") { // inner join, left join, right join, full join, cross join
 				joinQuery.WriteString(" join")
@@ -385,27 +382,27 @@ func SetWhere(baseDB *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 		return res
 	}
 	// filter from schema
-	f, isExist := ptr.Elem().FieldByName("Filter").Interface().([]Filter)
-	if !isExist || len(f) == 0 {
+	filters, isExist := ptr.Elem().FieldByName("Filter").Interface().([]Filter)
+	if !isExist || len(filters) == 0 {
 		CallMethod(ptr, "SetFilter", []reflect.Value{})
-		f, isExist = ptr.Elem().FieldByName("Filter").Interface().([]Filter)
+		filters, isExist = ptr.Elem().FieldByName("Filter").Interface().([]Filter)
 	}
 	if isExist {
-		for _, w := range f {
-			column := w.Column
-			if w.JsonKey == "" {
+		for _, f := range filters {
+			column := f.Column
+			if f.JsonKey != "" {
+				column = QuoteJSON(db, column, f.JsonKey)
+			} else if strings.Contains(column, " ") {
 				column = db.Statement.Quote(column)
-			} else {
-				column = QuoteJSON(db, column, w.JsonKey)
 			}
-			if w.Operator == "" {
-				w.Operator = "="
+			if f.Operator == "" {
+				f.Operator = "="
 			}
-			if w.Column2 != "" {
-				db = db.Where(column + w.Operator + db.Statement.Quote(w.Column2))
-			} else if w.Value != nil {
-				db = db.Where(column+w.Operator+"?", w.Value)
-			} else if w.Operator == "=" {
+			if f.Column2 != "" {
+				db = db.Where(column + f.Operator + db.Statement.Quote(f.Column2))
+			} else if f.Value != nil {
+				db = db.Where(column+f.Operator+"?", f.Value)
+			} else if f.Operator == "=" {
 				db = db.Where(column + " is null")
 			} else {
 				db = db.Where(column + " is not null")
@@ -430,7 +427,6 @@ func SetWhere(baseDB *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 					key = strings.ReplaceAll(key, "."+lastSubkey, "")
 				}
 				isDbTag := false
-
 				if subkey[0] == QueryDbField {
 					isDbTag = true
 					key = strings.ReplaceAll(key, QueryDbField+".", "")
@@ -493,17 +489,73 @@ func SetWhere(baseDB *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 		}
 	}
 	// filter from query $or
-	for key, sv := range query {
-		if key == QueryOr {
-			b, _ := json.MarshalIndent(sv, "", "  ")
-			fmt.Println(string(b))
+	for orKey, sv := range query {
+		if orKey == QueryOr {
 			for _, orQuery := range sv {
 				orDB := baseDB.Session(&gorm.Session{})
 				orQ := strings.Split(orQuery, QueryOrDelimiter)
 				for _, orStr := range orQ {
 					or := strings.Split(orStr, "=")
 					if len(or) > 1 {
-						fmt.Println("in progress")
+						key, _ := url.QueryUnescape(or[0])
+						subkey := strings.Split(key, ".")
+						lastSubkey := subkey[len(subkey)-1]
+						operator := setOperator(lastSubkey)
+						val, _ := url.QueryUnescape(or[1])
+						if operator == "" {
+							operator = "="
+						} else {
+							key = strings.ReplaceAll(key, "."+lastSubkey, "")
+						}
+						isDbTag := false
+						if subkey[0] == QueryDbField {
+							isDbTag = true
+							key = strings.ReplaceAll(key, QueryDbField+".", "")
+						}
+						for i := 0; i < t.NumField(); i++ {
+							field := t.Field(i)
+							if field.Name != "Model" && field.Type.Kind() != reflect.Slice {
+								jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
+								dbTag := strings.Split(field.Tag.Get("db"), ",")[0]
+								if key == jsonTag || (isDbTag && key == dbTag) || (subkey[0] == jsonTag && field.Type.Name() == "NullJSON") {
+									column := dbTag
+									if field.Type.Name() == "NullJSON" {
+										jsonKey := strings.Join(subkey[1:], ".")
+										column = QuoteJSON(db, column, strings.ReplaceAll(jsonKey, "."+lastSubkey, ""))
+									} else {
+										column = db.Statement.Quote(column)
+									}
+									colVal := strings.Split(val, QueryField+":")
+									if len(colVal) > 1 {
+										orDB = orDB.Or(column + operator + db.Statement.Quote(colVal[1]))
+									} else if val != "null" {
+										if field.Type.Name() == "NullBool" {
+											if val == "true" {
+												val = "1"
+											} else if val == "false" {
+												val = "0"
+											}
+										}
+										if lastSubkey == QueryOptInsensitiveLike || lastSubkey == QueryOptInsensitiveNotLike {
+											column = "lower(" + column + ")"
+											val = strings.ToLower(val)
+										}
+										if lastSubkey == QueryOptIn || lastSubkey == QueryOptNotIn {
+											orDB = orDB.Or(column+operator+"(?)", strings.Split(val, ","))
+										} else {
+											if strings.Contains(operator, "like") && !strings.Contains(val, "%") {
+												val = "%" + val + "%"
+											}
+											orDB = orDB.Or(column+operator+"?", val)
+										}
+									} else if operator == "=" {
+										orDB = orDB.Or(column + " is null")
+									} else {
+										orDB = orDB.Or(column + " is not null")
+									}
+								}
+							}
+						}
 					}
 				}
 				db = db.Where(orDB)
@@ -566,7 +618,6 @@ func SetSelect(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 }
 
 func SetOrder(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
-	v := ptr.Elem()
 	qSorts := strings.Split(query.Get(QuerySort), ",")
 	if len(qSorts) > 0 && qSorts[0] != "" {
 		for _, qs := range qSorts {
@@ -582,7 +633,7 @@ func SetOrder(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 				isCaseInsensitive = true
 			}
 			column := ""
-			t := v.Type()
+			t := ptr.Elem().Type()
 			for i := 0; i < t.NumField(); i++ {
 				field := t.Field(i)
 				if field.Name != "Model" && field.Type.Kind() != reflect.Slice {
@@ -605,21 +656,20 @@ func SetOrder(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 		}
 		return db
 	}
-	s, isExist := v.FieldByName("Sort").Interface().([]Sort)
-	if !isExist || len(s) == 0 {
+	sorts, isExist := ptr.Elem().FieldByName("Sort").Interface().([]Sort)
+	if !isExist || len(sorts) == 0 {
 		CallMethod(ptr, "SetSort", []reflect.Value{})
-		s, isExist = v.FieldByName("Sort").Interface().([]Sort)
+		sorts, isExist = ptr.Elem().FieldByName("Sort").Interface().([]Sort)
 	}
-
 	if isExist {
-		for _, o := range s {
-			if o.Direction == "" {
-				o.Direction = "asc"
+		for _, s := range sorts {
+			if s.Direction == "" {
+				s.Direction = "asc"
 			}
-			if o.JsonKey == "" {
-				db = db.Order(db.Statement.Quote(o.Column) + " " + o.Direction)
+			if s.JsonKey == "" {
+				db = db.Order(db.Statement.Quote(s.Column) + " " + s.Direction)
 			} else {
-				db = db.Order(QuoteJSON(db, o.Column, o.JsonKey) + " " + o.Direction)
+				db = db.Order(QuoteJSON(db, s.Column, s.JsonKey) + " " + s.Direction)
 			}
 		}
 	}
