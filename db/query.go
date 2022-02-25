@@ -75,11 +75,11 @@ var (
 	QueryField = "$field"
 
 	// aggregation query params
-	// ex: /products?$select=$count:id                         => sql: select count(id) as "count_id" from products
-	// ex: /products?$select=$sum:sold                         => sql: select sum(sold) as "sum_sold" from products
-	// ex: /products?$select=$min:sold                         => sql: select min(sold) as "min_sold" from products
-	// ex: /products?$select=$max:sold                         => sql: select max(sold) as "max_sold" from products
-	// ex: /products?$select=$avg:sold                         => sql: select avg(sold) as "avg_sold" from products
+	// ex: /products?$select=$count:id                         => sql: select count(id) as "count.id" from products
+	// ex: /products?$select=$sum:sold                         => sql: select sum(sold) as "sum.sold" from products
+	// ex: /products?$select=$min:sold                         => sql: select min(sold) as "min.sold" from products
+	// ex: /products?$select=$max:sold                         => sql: select max(sold) as "max.sold" from products
+	// ex: /products?$select=$avg:sold                         => sql: select avg(sold) as "avg.sold" from products
 	QueryCount = "$count"
 	QuerySum   = "$sum"
 	QueryMin   = "$min"
@@ -88,9 +88,9 @@ var (
 
 	// grouping query params setting
 	// ex: /products?$group=category.id                                                 => sql: select category_id from products group by category_id
-	// ex: /products?$group=category.id&$select=category.id,$avg:sold                   => sql: select category_id, avg(sold) as "avg_sold" from products group by category_id
-	// ex: /products?$group=category.id&$select=category.id,$sum:sold&$sum:sold.$gt=0   => sql: select category_id, sum(sold) as "sum_sold" from products group by category_id having sum(sold) > 0
-	// ex: /products?$group=category.id&$select=category.id,$sum:sold&$sort:-$sum:sold  => sql: select category_id, sum(sold) as "sum_sold" from products group by category_id order by sum(sold) desc
+	// ex: /products?$group=category.id&$select=category.id,$avg:sold                   => sql: select category_id, avg(sold) as "avg.sold" from products group by category_id
+	// ex: /products?$group=category.id&$select=category.id,$sum:sold&$sum:sold.$gt=0   => sql: select category_id, sum(sold) as "sum.sold" from products group by category_id having sum(sold) > 0
+	// ex: /products?$group=category.id&$select=category.id,$sum:sold&$sort:-$sum:sold  => sql: select category_id, sum(sold) as "sum.sold" from products group by category_id order by sum(sold) desc
 	QueryGroup = "$group"
 
 	// include query params setting
@@ -538,9 +538,27 @@ func SetSelect(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 		field := t.Field(i)
 		jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
 		if field.Name != "Model" && jsonTag != "" && jsonTag != "-" && field.Type.Kind() != reflect.Slice {
+			dbTag := strings.Split(field.Tag.Get("db"), ",")[0]
 			if (grouped[0] == "" && selected[0] == "") || InArray(grouped, jsonTag) || InArray(selected, jsonTag) {
-				dbTag := strings.Split(field.Tag.Get("db"), ",")[0]
 				fields = append(fields, db.Statement.Quote(dbTag)+" as "+Quote(db, jsonTag))
+			} else if selected[0] != "" {
+				for _, selectd := range selected {
+					s := strings.Split(selectd, ":")
+					if len(s) > 1 && s[1] == jsonTag {
+						switch s[0] {
+						case QueryCount:
+							fields = append(fields, "count("+db.Statement.Quote(dbTag)+") as "+Quote(db, "count."+jsonTag))
+						case QuerySum:
+							fields = append(fields, "sum("+db.Statement.Quote(dbTag)+") as "+Quote(db, "sum."+jsonTag))
+						case QueryMin:
+							fields = append(fields, "min("+db.Statement.Quote(dbTag)+") as "+Quote(db, "min."+jsonTag))
+						case QueryMax:
+							fields = append(fields, "max("+db.Statement.Quote(dbTag)+") as "+Quote(db, "max."+jsonTag))
+						case QueryAvg:
+							fields = append(fields, "avg("+db.Statement.Quote(dbTag)+") as "+Quote(db, "avg."+jsonTag))
+						}
+					}
+				}
 			}
 		}
 	}
