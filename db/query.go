@@ -324,10 +324,9 @@ func SetJoin(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 	if isExist {
 		for _, rel := range relations {
 			joinQuery := strings.Builder{}
-			if !strings.HasSuffix(strings.ToLower(rel.JoinType), "join") { // inner join, left join, right join, full join, cross join
+			joinQuery.WriteString(rel.JoinType) // inner join, left join, right join, full join, cross join
+			if !strings.HasSuffix(strings.ToLower(rel.JoinType), "join") {
 				joinQuery.WriteString(" join")
-			} else {
-				joinQuery.WriteString(rel.JoinType)
 			}
 			if !strings.Contains(rel.TableName, " ") { // quote table name if not join sub query
 				rel.TableName = Quote(db, rel.TableName)
