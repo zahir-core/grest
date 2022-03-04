@@ -240,6 +240,15 @@ func fixDataType(data map[string]interface{}, ptr reflect.Value) map[string]inte
 					data[key] = b
 				}
 			}
+		} else if field.Type.Name() == "NullDate" {
+			jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
+			for key, val := range data {
+				if key == jsonTag {
+					b := NullDate{}
+					b.Scan(val)
+					data[key] = b
+				}
+			}
 		} else if len(dbTag) > 1 && dbTag[1] == "json" {
 			jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
 			for key, val := range data {
