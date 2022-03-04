@@ -8,6 +8,9 @@ func (j jsonData) ToFlat(separator ...Separator) jsonData {
 	mp, isMap := j.Data.(map[string]interface{})
 	if isMap {
 		result := make(map[string]interface{})
+		if j.IsMerge {
+			result = mp
+		}
 		j.toFlatMap(result, mp, sep, true)
 		return jsonData{Data: result}
 	}

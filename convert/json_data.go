@@ -11,11 +11,13 @@ type Separator struct {
 }
 
 type jsonData struct {
-	Data interface{}
+	Data    interface{}
+	IsMerge bool
 }
 
-func NewJSON(data interface{}) jsonData {
+func NewJSON(data interface{}, isKeepOriginalData ...bool) jsonData {
 	var v interface{}
+	var isMerge bool
 	bt, isByte := data.([]byte) // from json byte
 	if !isByte {
 		s, isString := data.(string) // from json string
@@ -34,7 +36,10 @@ func NewJSON(data interface{}) jsonData {
 			}
 		}
 	}
-	return jsonData{Data: v}
+	if len(isKeepOriginalData) > 0 {
+		isMerge = isKeepOriginalData[0]
+	}
+	return jsonData{Data: v, IsMerge: isMerge}
 }
 
 func (j jsonData) Marshal() ([]byte, error) {

@@ -230,6 +230,7 @@ func fixDataType(data map[string]interface{}, ptr reflect.Value) map[string]inte
 	t := ptr.Elem().Type()
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
+		dbTag := strings.Split(field.Tag.Get("db"), ",")
 		if field.Type.Name() == "NullBool" {
 			jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
 			for key, val := range data {
@@ -237,6 +238,24 @@ func fixDataType(data map[string]interface{}, ptr reflect.Value) map[string]inte
 					b := NullBool{}
 					b.Scan(val)
 					data[key] = b
+				}
+			}
+		} else if len(dbTag) > 1 && dbTag[1] == "json" {
+			jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
+			for key, val := range data {
+				if key == jsonTag {
+					var v interface{}
+					var err error
+					s, isString := val.(string)
+					if isString {
+						err = json.Unmarshal([]byte(s), &v)
+					} else {
+						b, _ := val.([]byte)
+						err = json.Unmarshal(b, &v)
+					}
+					if err == nil {
+						data[key] = v
+					}
 				}
 			}
 		}

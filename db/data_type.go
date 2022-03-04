@@ -626,17 +626,49 @@ func (NullText) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	}
 }
 
+// NullJSON is a nullable string.
+// It supports SQL and JSON serialization.
 type NullJSON struct {
-	NullString
+	String string `json:"-"`
+	Valid  bool   `json:"-"`
 }
 
-func (n *NullJSON) Set(val string) {
+func (n *NullJSON) Set(val ...string) {
 	n.Valid = true
-	n.String = val
+	if len(val) > 0 {
+		n.String = val[0]
+	} else {
+		b, err := json.Marshal(n)
+		if err == nil {
+			n.String = string(b)
+		}
+	}
 }
 
 func (n *NullJSON) Val() string {
 	return n.String
+}
+
+// Scan implements the Scanner interface.
+func (n *NullJSON) Scan(value interface{}) error {
+	ns := sql.NullString{}
+	err := ns.Scan(value)
+	n.String = ns.String
+	n.Valid = ns.Valid
+	return err
+}
+
+// Value implements the driver Valuer interface.
+func (n NullJSON) Value() (driver.Value, error) {
+	if !n.Valid {
+		return nil, nil
+	}
+	return n.String, nil
+}
+
+// IsZero returns true for invalid string, for omitempty support
+func (n NullJSON) IsZero() bool {
+	return !n.Valid
 }
 
 // GormDataType returns gorm common data type. This type is used for the field's column type.
