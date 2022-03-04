@@ -633,15 +633,11 @@ type NullJSON struct {
 	Valid  bool   `json:"-"`
 }
 
-func (n *NullJSON) Set(val ...string) {
-	n.Valid = true
-	if len(val) > 0 {
-		n.String = val[0]
-	} else {
-		b, err := json.Marshal(n)
-		if err == nil {
-			n.String = string(b)
-		}
+func (n *NullJSON) Set(val interface{}) {
+	b, err := json.Marshal(val)
+	if err == nil {
+		n.String = string(b)
+		n.Valid = true
 	}
 }
 
