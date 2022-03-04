@@ -431,16 +431,16 @@ func (n NullDateTime) IsZero() bool {
 // NullDate is a nullable date.
 // It supports SQL and JSON serialization.
 type NullDate struct {
-	NullString
+	NullDateTime
 }
 
-func (n *NullDate) Set(val string) {
-	n.Valid = true
-	n.String = val
-}
-
-func (n *NullDate) Val() string {
-	return n.String
+// MarshalJSON implements json.Marshaler.
+// It will encode null if this NullDateTime is null.
+func (n NullDate) MarshalJSON() ([]byte, error) {
+	if !n.Valid {
+		return nullBytes, nil
+	}
+	return json.Marshal(n.Time.Format("2006-01-02"))
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
@@ -451,18 +451,18 @@ func (n *NullDate) UnmarshalJSON(data []byte) error {
 		n.Valid = false
 		return nil
 	}
-	if err := json.Unmarshal(data, &n.String); err == nil {
-		_, err := time.Parse("2006-01-02", n.String)
+	if err := json.Unmarshal(data, &n.Time); err == nil {
+		n.Valid = true
+		return nil
+	}
+	val := ""
+	if err := json.Unmarshal(data, &val); err == nil {
+		n.Time, err = time.Parse("2006-01-02", val)
 		if err == nil {
 			n.Valid = true
 		}
 	}
 	return nil
-}
-
-// IsZero returns true for zero time, for omitempty support
-func (n NullDate) IsZero() bool {
-	return !n.Valid
 }
 
 // GormDataType returns gorm common data type. This type is used for the field's column type.
@@ -489,24 +489,33 @@ func (NullDate) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 }
 
 // Scan implements sql.Scanner interface and scans value into Date
-func (d *NullDate) Scan(value interface{}) error {
+func (n *NullDate) Scan(value interface{}) error {
 	if value == nil {
-		d.String, d.Valid = "", false
 		return nil
 	}
 
 	switch v := value.(type) {
-	case []byte:
-		d.String, d.Valid = string(v), true
-	case string:
-		d.String, d.Valid = v, true
 	case time.Time:
-		d.String, d.Valid = v.Format("2006-01-02"), true
+		n.Time, n.Valid = v, true
+	case string:
+		t, err := time.Parse("2006-01-02", v)
+		n.Time, n.Valid = t, err == nil
+	case []byte:
+		t, err := time.Parse("2006-01-02", string(v))
+		n.Time, n.Valid = t, err == nil
 	default:
 		return errors.New(fmt.Sprintf("failed to scan value: %v", v))
 	}
 
 	return nil
+}
+
+// Value implements the driver Valuer interface.
+func (n NullDate) Value() (driver.Value, error) {
+	if !n.Valid {
+		return nil, nil
+	}
+	return n.Time.Format("2006-01-02"), nil
 }
 
 // NullDate is a nullable date.
