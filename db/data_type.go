@@ -631,6 +631,7 @@ func (NullText) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 type NullJSON struct {
 	String string `json:"-"`
 	Valid  bool   `json:"-"`
+	Data   interface{}
 }
 
 func (n *NullJSON) Set(val interface{}) {
@@ -645,12 +646,35 @@ func (n *NullJSON) Val() string {
 	return n.String
 }
 
+// MarshalJSON implements json.Marshaler.
+func (n NullJSON) MarshalJSON() ([]byte, error) {
+	if !n.Valid {
+		return nullBytes, nil
+	}
+	return json.Marshal(n.Data)
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (n *NullJSON) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(data, nullBytes) {
+		return nil
+	}
+	if err := json.Unmarshal(data, &n.Data); err == nil {
+		n.Valid = true
+		n.String = string(data)
+	}
+	return nil
+}
+
 // Scan implements the Scanner interface.
 func (n *NullJSON) Scan(value interface{}) error {
 	ns := sql.NullString{}
 	err := ns.Scan(value)
 	n.String = ns.String
 	n.Valid = ns.Valid
+	if n.Valid {
+		json.Unmarshal([]byte(n.String), &n.Data)
+	}
 	return err
 }
 
