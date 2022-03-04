@@ -410,7 +410,7 @@ func SetWhere(baseDB *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 			column := f.Column
 			if f.JsonKey != "" {
 				column = QuoteJSON(db, column, f.JsonKey)
-			} else if strings.Contains(column, " ") {
+			} else if !strings.Contains(column, " ") && !strings.Contains(column, "'") {
 				column = db.Statement.Quote(column)
 			}
 			if f.Operator == "" {
@@ -454,7 +454,7 @@ func SetWhere(baseDB *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 					if field.Type.Name() == "NullJSON" {
 						jsonKey := strings.Join(subkey[1:], ".")
 						column = QuoteJSON(db, column, strings.ReplaceAll(jsonKey, "."+lastSubkey, ""))
-					} else {
+					} else if !strings.Contains(column, " ") && !strings.Contains(column, "'") {
 						column = db.Statement.Quote(column)
 					}
 					for _, val := range sv {
@@ -540,7 +540,7 @@ func SetWhere(baseDB *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 									if field.Type.Name() == "NullJSON" {
 										jsonKey := strings.Join(subkey[1:], ".")
 										column = QuoteJSON(db, column, strings.ReplaceAll(jsonKey, "."+lastSubkey, ""))
-									} else {
+									} else if !strings.Contains(column, " ") && !strings.Contains(column, "'") {
 										column = db.Statement.Quote(column)
 									}
 									colVal := strings.Split(val, QueryField+":")
@@ -609,23 +609,26 @@ func SetSelect(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 		jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
 		if field.Name != "Model" && jsonTag != "" && jsonTag != "-" && field.Type.Kind() != reflect.Slice {
 			dbTag := strings.Split(field.Tag.Get("db"), ",")[0]
+			if !strings.Contains(dbTag, " ") && !strings.Contains(dbTag, "'") {
+				dbTag = db.Statement.Quote(dbTag)
+			}
 			if (grouped[0] == "" && selected[0] == "") || InArray(grouped, jsonTag) || InArray(selected, jsonTag) {
-				fields = append(fields, db.Statement.Quote(dbTag)+" as "+Quote(db, jsonTag))
+				fields = append(fields, dbTag+" as "+Quote(db, jsonTag))
 			} else if selected[0] != "" {
 				for _, selectd := range selected {
 					s := strings.Split(selectd, ":")
 					if len(s) > 1 && s[1] == jsonTag {
 						switch s[0] {
 						case QueryCount:
-							fields = append(fields, "count("+db.Statement.Quote(dbTag)+") as "+Quote(db, "count."+jsonTag))
+							fields = append(fields, "count("+dbTag+") as "+Quote(db, "count."+jsonTag))
 						case QuerySum:
-							fields = append(fields, "sum("+db.Statement.Quote(dbTag)+") as "+Quote(db, "sum."+jsonTag))
+							fields = append(fields, "sum("+dbTag+") as "+Quote(db, "sum."+jsonTag))
 						case QueryMin:
-							fields = append(fields, "min("+db.Statement.Quote(dbTag)+") as "+Quote(db, "min."+jsonTag))
+							fields = append(fields, "min("+dbTag+") as "+Quote(db, "min."+jsonTag))
 						case QueryMax:
-							fields = append(fields, "max("+db.Statement.Quote(dbTag)+") as "+Quote(db, "max."+jsonTag))
+							fields = append(fields, "max("+dbTag+") as "+Quote(db, "max."+jsonTag))
 						case QueryAvg:
-							fields = append(fields, "avg("+db.Statement.Quote(dbTag)+") as "+Quote(db, "avg."+jsonTag))
+							fields = append(fields, "avg("+dbTag+") as "+Quote(db, "avg."+jsonTag))
 						}
 					}
 				}
@@ -659,7 +662,10 @@ func SetOrder(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 					dbTag := strings.Split(field.Tag.Get("db"), ",")[0]
 					subKey := strings.Split(qs, ".")
 					if qs == jsonTag {
-						column = db.Statement.Quote(dbTag)
+						column = dbTag
+						if !strings.Contains(column, " ") && !strings.Contains(column, "'") {
+							column = db.Statement.Quote(column)
+						}
 					} else if field.Type.Name() == "NullJSON" && subKey[0] == jsonTag {
 						column = QuoteJSON(db, dbTag, strings.Join(subKey[1:], "."))
 					}
@@ -685,7 +691,11 @@ func SetOrder(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 				s.Direction = "asc"
 			}
 			if s.JsonKey == "" {
-				db = db.Order(db.Statement.Quote(s.Column) + " " + s.Direction)
+				column := s.Column
+				if !strings.Contains(column, " ") && !strings.Contains(column, "'") {
+					column = db.Statement.Quote(column)
+				}
+				db = db.Order(column + " " + s.Direction)
 			} else {
 				db = db.Order(QuoteJSON(db, s.Column, s.JsonKey) + " " + s.Direction)
 			}
