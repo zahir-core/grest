@@ -617,27 +617,30 @@ func SetSelect(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 		field := t.Field(i)
 		jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
 		if field.Name != "Model" && jsonTag != "" && jsonTag != "-" && field.Type.Kind() != reflect.Slice {
-			dbTag := strings.Split(field.Tag.Get("db"), ",")[0]
-			if !strings.Contains(dbTag, " ") && !strings.Contains(dbTag, "'") {
-				dbTag = db.Statement.Quote(dbTag)
-			}
-			if (grouped[0] == "" && selected[0] == "") || InArray(grouped, jsonTag) || InArray(selected, jsonTag) {
-				fields = append(fields, dbTag+" as "+Quote(db, jsonTag))
-			} else if selected[0] != "" {
-				for _, selectd := range selected {
-					s := strings.Split(selectd, ":")
-					if len(s) > 1 && s[1] == jsonTag {
-						switch s[0] {
-						case QueryCount:
-							fields = append(fields, "count("+dbTag+") as "+Quote(db, "count."+jsonTag))
-						case QuerySum:
-							fields = append(fields, "sum("+dbTag+") as "+Quote(db, "sum."+jsonTag))
-						case QueryMin:
-							fields = append(fields, "min("+dbTag+") as "+Quote(db, "min."+jsonTag))
-						case QueryMax:
-							fields = append(fields, "max("+dbTag+") as "+Quote(db, "max."+jsonTag))
-						case QueryAvg:
-							fields = append(fields, "avg("+dbTag+") as "+Quote(db, "avg."+jsonTag))
+			dbTagTemp := strings.Split(field.Tag.Get("db"), ",")
+			dbTag := dbTagTemp[0]
+			if dbTag != "-" || (len(dbTagTemp) > 1 && dbTagTemp[1] == "hide") {
+				if !strings.Contains(dbTag, " ") && !strings.Contains(dbTag, "(") && !strings.Contains(dbTag, "'") {
+					dbTag = db.Statement.Quote(dbTag)
+				}
+				if (grouped[0] == "" && selected[0] == "") || InArray(grouped, jsonTag) || InArray(selected, jsonTag) {
+					fields = append(fields, dbTag+" as "+Quote(db, jsonTag))
+				} else if selected[0] != "" {
+					for _, selectd := range selected {
+						s := strings.Split(selectd, ":")
+						if len(s) > 1 && s[1] == jsonTag {
+							switch s[0] {
+							case QueryCount:
+								fields = append(fields, "count("+dbTag+") as "+Quote(db, "count."+jsonTag))
+							case QuerySum:
+								fields = append(fields, "sum("+dbTag+") as "+Quote(db, "sum."+jsonTag))
+							case QueryMin:
+								fields = append(fields, "min("+dbTag+") as "+Quote(db, "min."+jsonTag))
+							case QueryMax:
+								fields = append(fields, "max("+dbTag+") as "+Quote(db, "max."+jsonTag))
+							case QueryAvg:
+								fields = append(fields, "avg("+dbTag+") as "+Quote(db, "avg."+jsonTag))
+							}
 						}
 					}
 				}
