@@ -146,11 +146,11 @@ func First(db *gorm.DB, dest interface{}, query url.Values) *queryResult {
 	}
 	query.Add(QueryLimit, "1")
 	query.Add(QueryInclude, "all")
-	rows := FindRows(db, ptr, query)
+	rows, err := FindRows(db, ptr, query)
 	if len(rows) > 0 {
-		return &queryResult{Dest: dest, Row: rows[0]}
+		return &queryResult{Dest: dest, Row: rows[0], Error: err}
 	}
-	return &queryResult{Error: gorm.ErrRecordNotFound}
+	return &queryResult{Error: err}
 }
 
 func Find(db *gorm.DB, dest interface{}, query url.Values) *queryResult {
@@ -161,11 +161,11 @@ func Find(db *gorm.DB, dest interface{}, query url.Values) *queryResult {
 	if ptr.Elem().Kind() == reflect.Slice {
 		ptr = reflect.New(ptr.Elem().Type().Elem())
 	}
-	rows := FindRows(db, ptr, query)
+	rows, err := FindRows(db, ptr, query)
 	if len(rows) > 0 {
-		return &queryResult{Dest: dest, Rows: rows}
+		return &queryResult{Dest: dest, Rows: rows, Error: err}
 	}
-	return &queryResult{Error: gorm.ErrRecordNotFound, Rows: rows}
+	return &queryResult{Rows: rows, Error: err}
 }
 
 func PaginationInfo(db *gorm.DB, dest interface{}, query url.Values) (int64, int64, int64, int64, error) {
@@ -187,7 +187,7 @@ func PaginationInfo(db *gorm.DB, dest interface{}, query url.Values) (int64, int
 	return count, page, limit, pageCount, nil
 }
 
-func FindRows(baseDB *gorm.DB, ptr reflect.Value, query url.Values) []map[string]interface{} {
+func FindRows(baseDB *gorm.DB, ptr reflect.Value, query url.Values) ([]map[string]interface{}, error) {
 	rows := []map[string]interface{}{}
 	db := baseDB.Session(&gorm.Session{})
 	db = SetTable(db, ptr, query)
@@ -197,11 +197,14 @@ func FindRows(baseDB *gorm.DB, ptr reflect.Value, query url.Values) []map[string
 	db = SetSelect(db, ptr, query)
 	db = SetOrder(db, ptr, query)
 	db = SetPagination(db, query)
-	db.Find(&rows)
+	err := db.Find(&rows).Error
 	for i, v := range rows {
-		rows[i] = IncludeArray(baseDB, fixDataType(v, ptr), ptr, query)
+		rows[i], err = IncludeArray(baseDB, fixDataType(v, ptr), ptr, query)
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return rows, err
+		}
 	}
-	return rows
+	return rows, err
 }
 
 func GetPaginationQuery(query url.Values) (int64, int64) {
@@ -272,10 +275,11 @@ func fixDataType(data map[string]interface{}, ptr reflect.Value) map[string]inte
 	return data
 }
 
-func IncludeArray(db *gorm.DB, data map[string]interface{}, ptr reflect.Value, query url.Values) map[string]interface{} {
+func IncludeArray(db *gorm.DB, data map[string]interface{}, ptr reflect.Value, query url.Values) (map[string]interface{}, error) {
 	t := ptr.Elem().Type()
 	includes := strings.Split(query.Get(QueryInclude), ",")
 	isIncludeAll := len(includes) > 0 && includes[0] == "all"
+	var err error
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		if field.Name != "Model" && field.Tag.Get("json") != "" && field.Tag.Get("json") != "-" && field.Type.Kind() == reflect.Slice {
@@ -289,7 +293,10 @@ func IncludeArray(db *gorm.DB, data map[string]interface{}, ptr reflect.Value, q
 						q.Add(QueryDbField+"."+rel[0], valString)
 						q.Add(QueryInclude, "all")
 						q.Add(QueryDisablePagination, "true")
-						data[jsonTag] = FindRows(db, reflect.New(field.Type.Elem()), q)
+						data[jsonTag], err = FindRows(db, reflect.New(field.Type.Elem()), q)
+						if err != nil && err != gorm.ErrRecordNotFound {
+							return data, err
+						}
 					}
 				}
 			} else {
@@ -297,7 +304,7 @@ func IncludeArray(db *gorm.DB, data map[string]interface{}, ptr reflect.Value, q
 			}
 		}
 	}
-	return data
+	return data, err
 }
 
 func InArray(needle []string, haystack string) bool {
