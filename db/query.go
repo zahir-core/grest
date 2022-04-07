@@ -150,7 +150,7 @@ func First(db *gorm.DB, dest interface{}, query url.Values) *queryResult {
 	if len(rows) > 0 {
 		return &queryResult{Dest: dest, Row: rows[0], Error: err}
 	}
-	return &queryResult{Error: err}
+	return &queryResult{Error: gorm.ErrRecordNotFound}
 }
 
 func Find(db *gorm.DB, dest interface{}, query url.Values) *queryResult {
