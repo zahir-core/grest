@@ -26,6 +26,17 @@ func TestQuery(t *testing.T) {
 	Find(db, &articles, q)
 }
 
+func TestQueryWithAggregationSelect(t *testing.T) {
+	db, err := NewMockDB()
+	if err != nil {
+		t.Fatalf("Error occured : [%v]", err.Error())
+	}
+	articles := []Article{}
+	q := url.Values{}
+	q.Add("$select", "$count:id")
+	Find(db, &articles, q)
+}
+
 func NewMockDB() (*gorm.DB, error) {
 	sqlDB, _, _ := sqlmock.New()
 

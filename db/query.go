@@ -658,7 +658,36 @@ func SetSelect(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 }
 
 func SetOrder(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
+	t := ptr.Elem().Type()
+	selected := strings.Split(query.Get(QuerySelect), ",")
+	grouped := strings.Split(query.Get(QueryGroup), ",")
 	qSorts := strings.Split(query.Get(QuerySort), ",")
+
+	restrictedSorts := []string{}
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
+		if field.Name != "Model" && jsonTag != "" && jsonTag != "-" && field.Type.Kind() != reflect.Slice {
+			dbTag := strings.Split(field.Tag.Get("db"), ",")
+
+			if selected[0] != "" {
+				for _, selectd := range selected {
+					s := strings.Split(selectd, ":")
+					if len(s) > 1 && s[1] == jsonTag {
+						switch s[0] {
+						case QueryCount, QuerySum, QueryMin, QueryMax, QueryAvg:
+							restrictedSorts = append(restrictedSorts, dbTag[0])
+						}
+					}
+				}
+			}
+
+			if (len(dbTag) > 1 && dbTag[1] == "group") || InArray(grouped, jsonTag) {
+				restrictedSorts = append(restrictedSorts, dbTag[0])
+			}
+		}
+	}
+
 	if len(qSorts) > 0 && qSorts[0] != "" {
 		for _, qs := range qSorts {
 			direction := "asc"
@@ -673,20 +702,21 @@ func SetOrder(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 				isCaseInsensitive = true
 			}
 			column := ""
-			t := ptr.Elem().Type()
 			for i := 0; i < t.NumField(); i++ {
 				field := t.Field(i)
 				if field.Name != "Model" && field.Type.Kind() != reflect.Slice {
 					jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
 					dbTag := strings.Split(field.Tag.Get("db"), ",")[0]
-					subKey := strings.Split(qs, ".")
-					if qs == jsonTag {
-						column = dbTag
-						if !strings.Contains(column, " ") && !strings.Contains(column, "'") {
-							column = db.Statement.Quote(column)
+					if len(restrictedSorts) == 0 || InArray(restrictedSorts, dbTag) {
+						subKey := strings.Split(qs, ".")
+						if qs == jsonTag {
+							column = dbTag
+							if !strings.Contains(column, " ") && !strings.Contains(column, "'") {
+								column = db.Statement.Quote(column)
+							}
+						} else if field.Type.Name() == "NullJSON" && subKey[0] == jsonTag {
+							column = QuoteJSON(db, dbTag, strings.Join(subKey[1:], "."))
 						}
-					} else if field.Type.Name() == "NullJSON" && subKey[0] == jsonTag {
-						column = QuoteJSON(db, dbTag, strings.Join(subKey[1:], "."))
 					}
 				}
 			}
@@ -706,17 +736,20 @@ func SetOrder(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 	}
 	if isExist {
 		for _, s := range sorts {
-			if s.Direction == "" {
-				s.Direction = "asc"
-			}
-			if s.JsonKey == "" {
-				column := s.Column
-				if !strings.Contains(column, " ") && !strings.Contains(column, "'") {
-					column = db.Statement.Quote(column)
+			if len(restrictedSorts) == 0 || InArray(restrictedSorts, s.Column) {
+				if s.Direction == "" {
+					s.Direction = "asc"
 				}
-				db = db.Order(column + " " + s.Direction)
-			} else {
-				db = db.Order(QuoteJSON(db, s.Column, s.JsonKey) + " " + s.Direction)
+
+				if s.JsonKey == "" {
+					column := s.Column
+					if !strings.Contains(column, " ") && !strings.Contains(column, "'") {
+						column = db.Statement.Quote(column)
+					}
+					db = db.Order(column + " " + s.Direction)
+				} else {
+					db = db.Order(QuoteJSON(db, s.Column, s.JsonKey) + " " + s.Direction)
+				}
 			}
 		}
 	}
