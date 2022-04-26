@@ -37,6 +37,17 @@ func TestQueryWithAggregationSelect(t *testing.T) {
 	Find(db, &articles, q)
 }
 
+func TestQueryWithHiddenFieldFilter(t *testing.T) {
+	db, err := NewMockDB()
+	if err != nil {
+		t.Fatalf("Error occured : [%v]", err.Error())
+	}
+	articles := []Article{}
+	q := url.Values{}
+	q.Add("is_hidden", "true")
+	Find(db, &articles, q)
+}
+
 func NewMockDB() (*gorm.DB, error) {
 	sqlDB, _, _ := sqlmock.New()
 
@@ -67,6 +78,7 @@ type Article struct {
 	Categories  []Category   `json:"categories"   db:"ac.article_id=id"`
 	Detail      NullJSON     `json:"detail"       db:"a.detail"`
 	IsActive    NullBool     `json:"is_active"    db:"a.is_active"`
+	IsHidden    NullBool     `json:"is_hidden"    db:"a.is_hidden,hide"`
 	CreatedAt   NullDateTime `json:"created_at"   db:"a.created_at"`
 	UpdatedAt   NullDateTime `json:"updated_at"   db:"a.updated_at"`
 	DeletedAt   NullDateTime `json:"deleted_at"   db:"a.deleted_at"`

@@ -626,7 +626,7 @@ func SetSelect(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 		if field.Name != "Model" && jsonTag != "" && jsonTag != "-" && field.Type.Kind() != reflect.Slice {
 			dbTagTemp := strings.Split(field.Tag.Get("db"), ",")
 			dbTag := dbTagTemp[0]
-			if dbTag != "-" || (len(dbTagTemp) > 1 && dbTagTemp[1] == "hide") {
+			if dbTag != "-" && (len(dbTagTemp) < 2 || dbTagTemp[1] != "hide") {
 				if !strings.Contains(dbTag, " ") && !strings.Contains(dbTag, "(") && !strings.Contains(dbTag, "'") {
 					dbTag = db.Statement.Quote(dbTag)
 				}
