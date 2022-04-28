@@ -1,36 +1,81 @@
 package db
 
 import (
-	"log"
 	"net/url"
-	"os"
+	"regexp"
 	"testing"
 
-	"github.com/DATA-DOG/go-sqlmock"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 )
 
-func TestQuery(t *testing.T) {
-	db, err := NewMockDB()
+func TestQueryWithOrAndSearchFilter(t *testing.T) {
+	db, mock, err := NewMockDB()
 	if err != nil {
 		t.Fatalf("Error occured : [%v]", err.Error())
 	}
+	mock.ExpectQuery(regexp.QuoteMeta(`
+	SELECT 
+		"a"."id" AS "id",
+		"a"."title" AS "title",
+		"a"."content" AS "content",
+		"a"."author_id" AS "author.id",
+		"u"."name" AS "author.name",
+		"u"."email" AS "author.email",
+		"a"."detail" AS "detail",
+		"a"."is_active" AS "is_active",
+		"a"."created_at" AS "created_at",
+		"a"."updated_at" AS "updated_at",
+		"a"."deleted_at" AS "deleted_at"
+	FROM
+		"articles" AS "u"
+		LEFT JOIN "users" AS "u" ON "u"."id" = "a"."author_id"
+	WHERE
+		"a"."deleted_at" IS NULL
+		AND (lower("u"."name") LIKE $1 OR "a"."is_active"=$2)
+		AND (lower("a"."title") LIKE $3 OR lower("a"."content") LIKE $4 OR lower("u"."name") LIKE $5)
+	ORDER BY
+		"a"."updated_at" DESC
+	LIMIT 10`)).
+		// WithArgs("%foo%", 1, "%bar%", "%bar%", "%bar%"). // todo: check args with %
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id",
+			"title",
+			"content",
+			"author.id",
+			"author.name",
+			"author.email",
+			"detail",
+			"is_active",
+			"created_at",
+			"updated_at",
+			"deleted_at",
+		}))
+
 	articles := []Article{}
 	q := url.Values{}
-	q.Add("$or", "author.name.$ilike=john||is_active=true")
-	// q.Add("detail.path.to.detail.$like", "some detail")
-	// q.Add("$sort", "author.name,-detail.path.to.detail:i,title:i,-updated_at")
-	q.Add("$search", "title,content,author.name=john")
+	q.Add("$or", "author.name.$ilike=foo||is_active=true")
+	q.Add("$search", "title,content,author.name=bar")
 	Find(db, &articles, q)
 }
 
 func TestQueryWithAggregationSelect(t *testing.T) {
-	db, err := NewMockDB()
+	db, mock, err := NewMockDB()
 	if err != nil {
 		t.Fatalf("Error occured : [%v]", err.Error())
 	}
+	mock.ExpectQuery(regexp.QuoteMeta(`
+	SELECT
+		COUNT("a"."id") AS "count.id"
+	FROM
+		"articles" AS "u"
+		LEFT JOIN "users" AS "u" ON "u"."id" = "a"."author_id"
+	WHERE
+		"a"."deleted_at" IS NULL
+	LIMIT 10`)).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"count.id",
+		}))
+
 	articles := []Article{}
 	q := url.Values{}
 	q.Add("$select", "$count:id")
@@ -38,104 +83,49 @@ func TestQueryWithAggregationSelect(t *testing.T) {
 }
 
 func TestQueryWithHiddenFieldFilter(t *testing.T) {
-	db, err := NewMockDB()
+	db, mock, err := NewMockDB()
 	if err != nil {
 		t.Fatalf("Error occured : [%v]", err.Error())
 	}
+	mock.ExpectQuery(regexp.QuoteMeta(`
+	SELECT
+		"a"."id" AS "id",
+		"a"."title" AS "title",
+		"a"."content" AS "content",
+		"a"."author_id" AS "author.id",
+		"u"."name" AS "author.name",
+		"u"."email" AS "author.email",
+		"a"."detail" AS "detail",
+		"a"."is_active" AS "is_active",
+		"a"."created_at" AS "created_at",
+		"a"."updated_at" AS "updated_at",
+		"a"."deleted_at" AS "deleted_at"
+	FROM
+		"articles" AS "u"
+		LEFT JOIN "users" AS "u" ON "u"."id" = "a"."author_id"
+	WHERE
+		"a"."deleted_at" IS NULL
+		AND "a"."is_hidden" = $1
+	ORDER BY
+		"a"."updated_at" DESC
+	LIMIT 10`)).
+		WithArgs("1").
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id",
+			"title",
+			"content",
+			"author.id",
+			"author.name",
+			"author.email",
+			"detail",
+			"is_active",
+			"created_at",
+			"updated_at",
+			"deleted_at",
+		}))
+
 	articles := []Article{}
 	q := url.Values{}
 	q.Add("is_hidden", "true")
 	Find(db, &articles, q)
-}
-
-func NewMockDB() (*gorm.DB, error) {
-	sqlDB, _, _ := sqlmock.New()
-
-	c := gorm.Config{}
-	c.PrepareStmt = false
-	c.DryRun = true
-	c.SkipDefaultTransaction = true
-	c.AllowGlobalUpdate = false
-	c.Logger = logger.New(log.New(os.Stdout, "\r\n", log.LstdFlags), logger.Config{
-		Colorful: true,
-		LogLevel: logger.Info,
-	})
-
-	return gorm.Open(postgres.New(postgres.Config{
-		Conn:                 sqlDB,
-		PreferSimpleProtocol: true,
-	}), &c)
-}
-
-type Article struct {
-	Model
-	ID          NullUUID     `json:"id"           db:"a.id"`
-	Title       NullString   `json:"title"        db:"a.title"`
-	Content     NullString   `json:"content"      db:"a.content"`
-	AuthorID    NullUUID     `json:"author.id"    db:"a.author_id"`
-	AuthorName  NullString   `json:"author.name"  db:"u.name"`
-	AuthorEmail NullString   `json:"author.email" db:"u.email"`
-	Categories  []Category   `json:"categories"   db:"ac.article_id=id"`
-	Detail      NullJSON     `json:"detail"       db:"a.detail"`
-	IsActive    NullBool     `json:"is_active"    db:"a.is_active"`
-	IsHidden    NullBool     `json:"is_hidden"    db:"a.is_hidden,hide"`
-	CreatedAt   NullDateTime `json:"created_at"   db:"a.created_at"`
-	UpdatedAt   NullDateTime `json:"updated_at"   db:"a.updated_at"`
-	DeletedAt   NullDateTime `json:"deleted_at"   db:"a.deleted_at"`
-}
-
-func (Article) TableVersion() string {
-	return "22.02.080822"
-}
-
-func (Article) TableName() string {
-	return "articles"
-}
-
-func (Article) TableAliasName() string {
-	return "u"
-}
-
-func (a *Article) SetRelation() {
-	a.Relation = append(a.Relation, NewRelation("left", "users", "u", []Filter{{Column: "u.id", Column2: "a.author_id"}}))
-}
-
-func (a *Article) SetFilter() {
-	a.Filter = append(a.Filter, NewFilter("a.deleted_at", "=", nil))
-}
-
-func (a *Article) SetSort() {
-	a.Sort = append(a.Sort, NewSort("a.updated_at", "desc"))
-}
-
-type Category struct {
-	Model
-	ID          NullUUID     `json:"id"           db:"c.id"`
-	Code        NullString   `json:"code"         db:"c.code"`
-	Name        NullString   `json:"name"         db:"c.name"`
-	IsActive    NullBool     `json:"is_active"    db:"c.is_active"`
-	AuthorID    NullUUID     `json:"author.id"    db:"c.author_id"`
-	AuthorName  NullString   `json:"author.name"  db:"u.name"`
-	AuthorEmail NullString   `json:"author.email" db:"u.email"`
-	CreatedAt   NullDateTime `json:"created.time" db:"c.created_at"`
-	UpdatedAt   NullDateTime `json:"updated.time" db:"c.updated_at"`
-	DeletedAt   NullDateTime `json:"deleted.time" db:"c.deleted_at"`
-	ArticleID   NullUUID     `json:"-"            db:"ac.article_id"`
-}
-
-func (Category) TableName() string {
-	return "categories"
-}
-
-func (Category) TableVersion() string {
-	return "22.02.210949"
-}
-
-func (Category) TableAliasName() string {
-	return "c"
-}
-
-func (c *Category) SetRelation() {
-	c.Relation = append(c.Relation, NewRelation("inner", "articles_categories", "ac", []Filter{{Column: "ac.category_id", Column2: "c.id"}}))
-	c.Relation = append(c.Relation, NewRelation("left", "users", "u", []Filter{{Column: "u.id", Column2: "c.author_id"}}))
 }

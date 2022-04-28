@@ -347,7 +347,7 @@ func SetTable(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 		tableName = Quote(db, tableName)
 	}
 
-	return db.Table(tableName + " as " + Quote(db, tableAliasName))
+	return db.Table(tableName + " AS " + Quote(db, tableAliasName))
 }
 
 func SetJoin(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
@@ -359,15 +359,15 @@ func SetJoin(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 	if isExist {
 		for _, rel := range relations {
 			joinQuery := strings.Builder{}
-			joinQuery.WriteString(rel.JoinType) // inner join, left join, right join, full join, cross join
-			if !strings.HasSuffix(strings.ToLower(rel.JoinType), "join") {
-				joinQuery.WriteString(" join")
+			joinQuery.WriteString(strings.ToUpper(rel.JoinType)) // inner join, left join, right join, full join, cross join
+			if !strings.HasSuffix(strings.ToLower(rel.JoinType), "JOIN") {
+				joinQuery.WriteString(" JOIN")
 			}
 			if !strings.Contains(rel.TableName, " ") { // quote table name if not join sub query
 				rel.TableName = Quote(db, rel.TableName)
 			}
 			joinQuery.WriteString(" " + rel.TableName)
-			joinQuery.WriteString(" as " + Quote(db, rel.TableAliasName))
+			joinQuery.WriteString(" AS " + Quote(db, rel.TableAliasName))
 			joinConditions := []string{}
 			args := []interface{}{}
 			for _, rc := range rel.RelationCondition {
@@ -376,7 +376,7 @@ func SetJoin(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 				if rc.Operator != "" {
 					joinCondition.WriteString(rc.Operator)
 				} else {
-					joinCondition.WriteString("=")
+					joinCondition.WriteString(" = ")
 				}
 				if rc.Column2 != "" {
 					joinCondition.WriteString(db.Statement.Quote(rc.Column2))
@@ -387,7 +387,7 @@ func SetJoin(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 				joinConditions = append(joinConditions, joinCondition.String())
 			}
 			if len(joinConditions) > 0 {
-				joinQuery.WriteString(" on " + strings.Join(joinConditions, " and "))
+				joinQuery.WriteString(" ON " + strings.Join(joinConditions, " AND "))
 			}
 			db = db.Joins(joinQuery.String(), args...)
 		}
@@ -405,12 +405,12 @@ func SetWhere(baseDB *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 			QueryOptGreaterThanOrEqual: ">=",
 			QueryOptLowerThan:          "<",
 			QueryOptLowerThanOrEqual:   "<=",
-			QueryOptLike:               " like ",
-			QueryOptNotLike:            " not like ",
-			QueryOptInsensitiveLike:    " like ",
-			QueryOptInsensitiveNotLike: " not like ",
-			QueryOptIn:                 " in ",
-			QueryOptNotIn:              " not in ",
+			QueryOptLike:               " LIKE ",
+			QueryOptNotLike:            " NOT LIKE ",
+			QueryOptInsensitiveLike:    " LIKE ",
+			QueryOptInsensitiveNotLike: " NOT LIKE ",
+			QueryOptIn:                 " IN ",
+			QueryOptNotIn:              " NOT IN ",
 		}
 		res, _ := opt[key]
 		return res
@@ -433,13 +433,13 @@ func SetWhere(baseDB *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 				f.Operator = "="
 			}
 			if f.Column2 != "" {
-				db = db.Where(column + f.Operator + db.Statement.Quote(f.Column2))
+				db = db.Where(column + " " + f.Operator + " " + db.Statement.Quote(f.Column2))
 			} else if f.Value != nil {
-				db = db.Where(column+f.Operator+"?", f.Value)
+				db = db.Where(column+" "+f.Operator+" ?", f.Value)
 			} else if f.Operator == "=" {
-				db = db.Where(column + " is null")
+				db = db.Where(column + " IS NULL")
 			} else {
-				db = db.Where(column + " is not null")
+				db = db.Where(column + " IS NOT NULL")
 			}
 		}
 	}
@@ -476,8 +476,8 @@ func SetWhere(baseDB *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 					for _, val := range sv {
 						colVal := strings.Split(val, QueryField+":")
 						if len(colVal) > 1 {
-							db = db.Where(column + operator + db.Statement.Quote(colVal[1]))
-						} else if val != "null" {
+							db = db.Where(column + " " + operator + " " + db.Statement.Quote(colVal[1]))
+						} else if strings.ToUpper(val) != "NULL" {
 							if field.Type.Name() == "NullBool" {
 								if val == "true" {
 									val = "1"
@@ -486,21 +486,21 @@ func SetWhere(baseDB *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 								}
 							}
 							if lastSubkey == QueryOptInsensitiveLike || lastSubkey == QueryOptInsensitiveNotLike {
-								column = "lower(" + column + ")"
+								column = "LOWER(" + column + ")"
 								val = strings.ToLower(val)
 							}
 							if lastSubkey == QueryOptIn || lastSubkey == QueryOptNotIn {
-								db = db.Where(column+operator+"(?)", strings.Split(val, ","))
+								db = db.Where(column+" "+operator+" "+"(?)", strings.Split(val, ","))
 							} else {
-								if strings.Contains(operator, "like") && !strings.Contains(val, "%") {
+								if strings.Contains(operator, "LIKE") && !strings.Contains(val, "%") {
 									val = "%" + val + "%"
 								}
-								db = db.Where(column+operator+"?", val)
+								db = db.Where(column+" "+operator+" "+"?", val)
 							}
 						} else if operator == "=" {
-							db = db.Where(column + " is null")
+							db = db.Where(column + " IS NULL")
 						} else {
-							db = db.Where(column + " is not null")
+							db = db.Where(column + " IS NOT NULL")
 						}
 					}
 				}
@@ -562,7 +562,7 @@ func SetWhere(baseDB *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 									colVal := strings.Split(val, QueryField+":")
 									if len(colVal) > 1 {
 										orDB = orDB.Or(column + operator + db.Statement.Quote(colVal[1]))
-									} else if val != "null" {
+									} else if strings.ToUpper(val) != "NULL" {
 										if field.Type.Name() == "NullBool" {
 											if val == "true" {
 												val = "1"
@@ -577,15 +577,15 @@ func SetWhere(baseDB *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 										if lastSubkey == QueryOptIn || lastSubkey == QueryOptNotIn {
 											orDB = orDB.Or(column+operator+"(?)", strings.Split(val, ","))
 										} else {
-											if strings.Contains(operator, "like") && !strings.Contains(val, "%") {
+											if strings.Contains(operator, "LIKE") && !strings.Contains(val, "%") {
 												val = "%" + val + "%"
 											}
 											orDB = orDB.Or(column+operator+"?", val)
 										}
 									} else if operator == "=" {
-										orDB = orDB.Or(column + " is null")
+										orDB = orDB.Or(column + " IS NULL")
 									} else {
-										orDB = orDB.Or(column + " is not null")
+										orDB = orDB.Or(column + " IS NOT NULL")
 									}
 								}
 							}
@@ -631,22 +631,22 @@ func SetSelect(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 					dbTag = db.Statement.Quote(dbTag)
 				}
 				if (grouped[0] == "" && selected[0] == "") || InArray(grouped, jsonTag) || InArray(selected, jsonTag) {
-					fields = append(fields, dbTag+" as "+Quote(db, jsonTag))
+					fields = append(fields, dbTag+" AS "+Quote(db, jsonTag))
 				} else if selected[0] != "" {
 					for _, selectd := range selected {
 						s := strings.Split(selectd, ":")
 						if len(s) > 1 && s[1] == jsonTag {
 							switch s[0] {
 							case QueryCount:
-								fields = append(fields, "count("+dbTag+") as "+Quote(db, "count."+jsonTag))
+								fields = append(fields, "COUNT("+dbTag+") AS "+Quote(db, "count."+jsonTag))
 							case QuerySum:
-								fields = append(fields, "sum("+dbTag+") as "+Quote(db, "sum."+jsonTag))
+								fields = append(fields, "SUM("+dbTag+") AS "+Quote(db, "sum."+jsonTag))
 							case QueryMin:
-								fields = append(fields, "min("+dbTag+") as "+Quote(db, "min."+jsonTag))
+								fields = append(fields, "MIN("+dbTag+") AS "+Quote(db, "min."+jsonTag))
 							case QueryMax:
-								fields = append(fields, "max("+dbTag+") as "+Quote(db, "max."+jsonTag))
+								fields = append(fields, "MAX("+dbTag+") AS "+Quote(db, "max."+jsonTag))
 							case QueryAvg:
-								fields = append(fields, "avg("+dbTag+") as "+Quote(db, "avg."+jsonTag))
+								fields = append(fields, "AVG("+dbTag+") AS "+Quote(db, "avg."+jsonTag))
 							}
 						}
 					}
@@ -654,7 +654,7 @@ func SetSelect(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 			}
 		}
 	}
-	return db.Select(strings.Join(fields, ","))
+	return db.Select(strings.Join(fields, ", "))
 }
 
 func SetOrder(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
@@ -690,10 +690,10 @@ func SetOrder(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 
 	if len(qSorts) > 0 && qSorts[0] != "" {
 		for _, qs := range qSorts {
-			direction := "asc"
+			direction := "ASC"
 			if qs[0:1] == "-" {
 				qs = qs[1:]
-				direction = "desc"
+				direction = "DESC"
 			}
 			isCaseInsensitive := false
 			ci := strings.Split(qs, ":")
@@ -738,8 +738,9 @@ func SetOrder(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 		for _, s := range sorts {
 			if len(restrictedSorts) == 0 || InArray(restrictedSorts, s.Column) {
 				if s.Direction == "" {
-					s.Direction = "asc"
+					s.Direction = "ASC"
 				}
+				s.Direction = strings.ToUpper(s.Direction)
 
 				if s.JsonKey == "" {
 					column := s.Column
