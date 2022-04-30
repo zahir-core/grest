@@ -3,6 +3,7 @@ package fs
 import (
 	"context"
 	"io"
+	"os"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -15,6 +16,8 @@ var (
 )
 
 type Config struct {
+	Driver             string
+	LocalDirPath       string
 	EndPoint           string
 	Port               int
 	Region             string
@@ -26,6 +29,22 @@ type Config struct {
 
 func Configure(c Config) error {
 	var err error
+
+	if c.Driver == "local" {
+		if c.LocalDirPath == "" {
+			c.LocalDirPath = "data"
+		}
+		Cfg = c
+		_, err = os.Stat(c.LocalDirPath)
+		if os.IsNotExist(err) {
+			err = os.Mkdir(c.LocalDirPath, 0755)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
 	Client, err = minio.New(c.EndPoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(c.AccessKey, c.SecretKey, ""),
 		Secure: true,
@@ -50,7 +69,7 @@ func Configure(c Config) error {
 }
 
 func GetPath(fileName string, path ...string) string {
-	if Cfg.EndPoint != "s3.amazonaws.com" {
+	if Cfg.Driver != "local" && Cfg.EndPoint != "s3.amazonaws.com" {
 		return fileName
 	}
 	res := ""
@@ -63,10 +82,14 @@ func GetPath(fileName string, path ...string) string {
 }
 
 func GetUrl(fileName string, path ...string) string {
-	if Cfg.EndPoint != "s3.amazonaws.com" {
+	if Cfg.Driver != "local" && Cfg.EndPoint != "s3.amazonaws.com" {
 		return "https://" + Cfg.BucketName + "." + Cfg.EndPoint + "/" + fileName
 	}
+
 	res := "https://" + Cfg.BucketName + ".s3." + Cfg.Region + ".amazonaws.com/"
+	if Cfg.Driver == "local" {
+		res = "http://" + Cfg.EndPoint + "/" + Cfg.LocalDirPath + "/"
+	}
 	for _, p := range path {
 		res += p + "/"
 	}
@@ -76,6 +99,15 @@ func GetUrl(fileName string, path ...string) string {
 }
 
 func Upload(fileName string, file *io.Reader, fileSize int64, opts ...minio.PutObjectOptions) (minio.UploadInfo, error) {
+	if Cfg.Driver == "local" {
+		f, err := os.Create(Cfg.LocalDirPath + "/" + fileName)
+		if err != nil {
+			return minio.UploadInfo{}, nil
+		}
+		_, err = io.Copy(f, *file)
+		return minio.UploadInfo{}, err
+	}
+
 	opt := minio.PutObjectOptions{}
 	opt.UserMetadata = map[string]string{"x-amz-acl": "public-read"}
 	if len(opts) > 0 {
@@ -85,6 +117,10 @@ func Upload(fileName string, file *io.Reader, fileSize int64, opts ...minio.PutO
 }
 
 func Delete(fileName string, opts ...minio.RemoveObjectOptions) error {
+	if Cfg.Driver == "local" {
+		return os.Remove(Cfg.LocalDirPath + "/" + fileName)
+	}
+
 	opt := minio.RemoveObjectOptions{}
 	opt.GovernanceBypass = true
 	if len(opts) > 0 {
