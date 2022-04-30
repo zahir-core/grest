@@ -30,10 +30,10 @@ type Config struct {
 func Configure(c Config) error {
 	var err error
 
+	if c.LocalDirPath == "" {
+		c.LocalDirPath = "data"
+	}
 	if c.Driver == "local" {
-		if c.LocalDirPath == "" {
-			c.LocalDirPath = "data"
-		}
 		Cfg = c
 		_, err = os.Stat(c.LocalDirPath)
 		if os.IsNotExist(err) {
@@ -50,6 +50,7 @@ func Configure(c Config) error {
 		Secure: true,
 	})
 	if err != nil {
+		Cfg.Driver = "local"
 		return err
 	}
 	Cfg = c
@@ -59,9 +60,11 @@ func Configure(c Config) error {
 		if !isExist {
 			err := Client.MakeBucket(ctx, c.BucketName, minio.MakeBucketOptions{Region: c.Region})
 			if err != nil {
+				Cfg.Driver = "local"
 				return err
 			}
 		} else if errBucketExist != nil {
+			Cfg.Driver = "local"
 			return errBucketExist
 		}
 	}
@@ -98,13 +101,14 @@ func GetUrl(fileName string, path ...string) string {
 	return res
 }
 
-func Upload(fileName string, file *io.Reader, fileSize int64, opts ...minio.PutObjectOptions) (minio.UploadInfo, error) {
+func Upload(fileName string, src io.Reader, fileSize int64, opts ...minio.PutObjectOptions) (minio.UploadInfo, error) {
 	if Cfg.Driver == "local" {
-		f, err := os.Create(Cfg.LocalDirPath + "/" + fileName)
+		dst, err := os.Create(Cfg.LocalDirPath + "/" + fileName)
 		if err != nil {
 			return minio.UploadInfo{}, nil
 		}
-		_, err = io.Copy(f, *file)
+		defer dst.Close()
+		_, err = io.Copy(dst, src)
 		return minio.UploadInfo{}, err
 	}
 
@@ -113,7 +117,7 @@ func Upload(fileName string, file *io.Reader, fileSize int64, opts ...minio.PutO
 	if len(opts) > 0 {
 		opt = opts[0]
 	}
-	return Client.PutObject(ctx, Cfg.BucketName, fileName, *file, fileSize, opt)
+	return Client.PutObject(ctx, Cfg.BucketName, fileName, src, fileSize, opt)
 }
 
 func Delete(fileName string, opts ...minio.RemoveObjectOptions) error {
