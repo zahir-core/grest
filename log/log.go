@@ -1,175 +1,88 @@
-// from https://github.com/uber-go/zap/issues/342#issuecomment-284174081
 package log
 
 import (
 	"os"
-	"path"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	lumberjack "gopkg.in/natefinch/lumberjack.v2"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-// Configuration for logging
+var logger *zap.Logger
+
 type Config struct {
-	// EncodeLogsAsJson makes the log framework log JSON
-	EncodeLogsAsJson bool
-	// FileLoggingEnabled makes the framework log to a file
-	// the fields below can be skipped if this value is false!
-	FileLoggingEnabled bool
-	// Directory to log to to when filelogging is enabled
-	Directory string
-	// Filename is the name of the logfile which will be placed inside the directory
+
+	// AsJSON serializes the core log entry data in a JSON format
+	AsJSON bool
+
+	// AsFile save log to file instead of print to stdout
+	AsFile bool
+
+	// UseRotator writing logs to rolling files
+	UseRotator bool
+
+	// Filename is the file to write logs to.
 	Filename string
-	// MaxSize the max size in MB of the logfile before it's rolled
+
+	// MaxSize is the maximum size in megabytes of the log file before it gets
+	// rotated. It defaults to 100 megabytes.
 	MaxSize int
-	// MaxBackups the max number of rolled files to keep
-	MaxBackups int
-	// MaxAge the max age in days to keep a logfile
+
+	// MaxAge is the maximum number of days to retain old log files based on the
+	// timestamp encoded in their filename.  Note that a day is defined as 24
+	// hours and may not exactly correspond to calendar days due to daylight
+	// savings, leap seconds, etc. The default is not to remove old log files
+	// based on age.
 	MaxAge int
+
+	// MaxBackups is the maximum number of old log files to retain.  The default
+	// is to retain all old log files (though MaxAge may still cause them to get
+	// deleted.)
+	MaxBackups int
+
+	// LocalTime determines if the time used for formatting the timestamps in
+	// backup files is the computer's local time.  The default is to use UTC
+	// time.
+	LocalTime bool
+
+	// Compress determines if the rotated log files should be compressed
+	// using gzip. The default is not to perform compression.
+	Compress bool
 }
 
-// How to log, by example:
-// logger.Info("Importing new file, zap.String("source", filename), zap.Int("size", 1024))
-// To log a stacktrace:
-// logger.Error("It went wrong, zap.Stack())
-
-// DefaultZapLogger is the default logger instance that should be used to log
-// It's assigned a default value here for tests (which do not call log.Configure())
-var DefaultZapLogger = newZapLogger(false, os.Stdout)
-
-// Debug Log a message at the debug level. Messages include any context that's
-// accumulated on the logger, as well as any fields added at the log site.
-//
-// Use zap.String(key, value), zap.Int(key, value) to log fields. These fields
-// will be marshalled as JSON in the logfile and key value pairs in the console!
-func Debug(msg string, fields ...zapcore.Field) {
-	DefaultZapLogger.Debug(msg, fields...)
-}
-
-// Info log a message at the info level. Messages include any context that's
-// accumulated on the logger, as well as any fields added at the log site.
-//
-// Use zap.String(key, value), zap.Int(key, value) to log fields. These fields
-// will be marshalled as JSON in the logfile and key value pairs in the console!
-func Info(msg string, fields ...zapcore.Field) {
-	DefaultZapLogger.Info(msg, fields...)
-}
-
-// Warn log a message at the warn level. Messages include any context that's
-// accumulated on the logger, as well as any fields added at the log site.
-//
-// Use zap.String(key, value), zap.Int(key, value) to log fields. These fields
-// will be marshalled as JSON in the logfile and key value pairs in the console!
-func Warn(msg string, fields ...zapcore.Field) {
-	DefaultZapLogger.Warn(msg, fields...)
-}
-
-// Error Log a message at the error level. Messages include any context that's
-// accumulated on the logger, as well as any fields added at the log site.
-//
-// Use zap.String(key, value), zap.Int(key, value) to log fields. These fields
-// will be marshalled as JSON in the logfile and key value pairs in the console!
-func Error(msg string, fields ...zapcore.Field) {
-	DefaultZapLogger.Error(msg, fields...)
-}
-
-// Panic Log a message at the Panic level. Messages include any context that's
-// accumulated on the logger, as well as any fields added at the log site.
-//
-// Use zap.String(key, value), zap.Int(key, value) to log fields. These fields
-// will be marshalled as JSON in the logfile and key value pairs in the console!
-func Panic(msg string, fields ...zapcore.Field) {
-	DefaultZapLogger.Panic(msg, fields...)
-}
-
-// Fatal Log a message at the fatal level. Messages include any context that's
-// accumulated on the logger, as well as any fields added at the log site.
-//
-// Use zap.String(key, value), zap.Int(key, value) to log fields. These fields
-// will be marshalled as JSON in the logfile and key value pairs in the console!
-func Fatal(msg string, fields ...zapcore.Field) {
-	DefaultZapLogger.Fatal(msg, fields...)
-}
-
-// AtLevel logs the message at a specific log level
-func AtLevel(level zapcore.Level, msg string, fields ...zapcore.Field) {
-	switch level {
-	case zapcore.DebugLevel:
-		Debug(msg, fields...)
-	case zapcore.PanicLevel:
-		Panic(msg, fields...)
-	case zapcore.ErrorLevel:
-		Error(msg, fields...)
-	case zapcore.WarnLevel:
-		Warn(msg, fields...)
-	case zapcore.InfoLevel:
-		Info(msg, fields...)
-	case zapcore.FatalLevel:
-		Fatal(msg, fields...)
-	default:
-		Warn("Logging at unkown level", zap.Any("level", level))
-		Warn(msg, fields...)
-	}
-}
-
-// Configure sets up the logging framework
-//
-// In production, the container logs will be collected and file logging should be disabled. However,
-// during development it's nicer to see logs as text and optionally write to a file when debugging
-// problems in the containerized pipeline
-//
-// The output log file will be located at /var/log/auth-service/auth-service.log and
-// will be rolled when it reaches 20MB with a maximum of 1 backup.
-func Configure(config Config) {
-	writers := []zapcore.WriteSyncer{os.Stdout}
-	if config.FileLoggingEnabled {
-		writers = append(writers, newRollingFile(config))
+func Configure(c Config) {
+	if c.Filename == "" {
+		c.Filename = "logs/grest.log"
 	}
 
-	DefaultZapLogger = newZapLogger(config.EncodeLogsAsJson, zapcore.NewMultiWriteSyncer(writers...))
-	zap.RedirectStdLog(DefaultZapLogger)
-	Info("logging configured",
-		zap.Bool("fileLogging", config.FileLoggingEnabled),
-		zap.Bool("jsonLogOutput", config.EncodeLogsAsJson),
-		zap.String("logDirectory", config.Directory),
-		zap.String("fileName", config.Filename),
-		zap.Int("maxSizeMB", config.MaxSize),
-		zap.Int("maxBackups", config.MaxBackups),
-		zap.Int("maxAgeInDays", config.MaxAge))
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+	encoder := zapcore.NewConsoleEncoder(encoderConfig)
+	if c.AsJSON {
+		encoder = zapcore.NewJSONEncoder(encoderConfig)
+	}
+
+	ws := zapcore.AddSync(os.Stdout)
+	if c.AsFile {
+		if c.UseRotator {
+			ws = zapcore.AddSync(&lumberjack.Logger{
+				Filename:   c.Filename,
+				MaxSize:    c.MaxSize,
+				MaxBackups: c.MaxBackups,
+				MaxAge:     c.MaxAge,
+				Compress:   c.Compress,
+			})
+		} else {
+			f, _ := os.OpenFile(c.Filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			ws = zapcore.AddSync(f)
+		}
+	}
+
+	core := zapcore.NewCore(encoder, ws, zapcore.DebugLevel)
+	logger = zap.New(core, zap.AddCaller())
 }
 
-func newRollingFile(config Config) zapcore.WriteSyncer {
-	if err := os.MkdirAll(config.Directory, 0); err != nil {
-		Error("failed create log directory", zap.Error(err), zap.String("path", config.Directory))
-		return nil
-	}
-
-	return zapcore.AddSync(&lumberjack.Logger{
-		Filename:   path.Join(config.Directory, config.Filename),
-		MaxSize:    config.MaxSize,    //megabytes
-		MaxAge:     config.MaxAge,     //days
-		MaxBackups: config.MaxBackups, //files
-	})
-}
-
-func newZapLogger(encodeAsJSON bool, output zapcore.WriteSyncer) *zap.Logger {
-	encCfg := zapcore.EncoderConfig{
-		TimeKey:        "@timestamp",
-		LevelKey:       "level",
-		NameKey:        "logger",
-		CallerKey:      "caller",
-		MessageKey:     "msg",
-		StacktraceKey:  "stacktrace",
-		EncodeLevel:    zapcore.LowercaseLevelEncoder,
-		EncodeTime:     zapcore.ISO8601TimeEncoder,
-		EncodeDuration: zapcore.NanosDurationEncoder,
-	}
-
-	encoder := zapcore.NewConsoleEncoder(encCfg)
-	if encodeAsJSON {
-		encoder = zapcore.NewJSONEncoder(encCfg)
-	}
-
-	return zap.New(zapcore.NewCore(encoder, output, zap.NewAtomicLevel()))
+func New() *zap.Logger {
+	return logger
 }
