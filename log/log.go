@@ -48,6 +48,8 @@ type Config struct {
 	// Compress determines if the rotated log files should be compressed
 	// using gzip. The default is not to perform compression.
 	Compress bool
+
+	Development bool
 }
 
 func Configure(c Config) {
@@ -55,16 +57,22 @@ func Configure(c Config) {
 		c.Filename = "logs/grest.log"
 	}
 
-	encoderConfig := zap.NewProductionEncoderConfig()
-	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
-	encoder := zapcore.NewConsoleEncoder(encoderConfig)
-	if c.AsJSON {
-		encoder = zapcore.NewJSONEncoder(encoderConfig)
+	config := zap.NewProductionEncoderConfig()
+	if c.Development {
+		config = zap.NewDevelopmentEncoderConfig()
+		config.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		config.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05")
 	}
 
-	ws := zapcore.AddSync(os.Stdout)
+	encoder := zapcore.NewConsoleEncoder(config)
+	if c.AsJSON {
+		config.EncodeTime = zapcore.ISO8601TimeEncoder
+		encoder = zapcore.NewJSONEncoder(config)
+	}
+
+	ws := zapcore.AddSync(Stdout)
 	if c.AsFile {
+		config.EncodeLevel = zapcore.CapitalLevelEncoder
 		if c.UseRotator {
 			ws = zapcore.AddSync(&lumberjack.Logger{
 				Filename:   c.Filename,
@@ -80,7 +88,7 @@ func Configure(c Config) {
 	}
 
 	core := zapcore.NewCore(encoder, ws, zapcore.DebugLevel)
-	logger = zap.New(core, zap.AddCaller())
+	logger = zap.New(core)
 }
 
 func New() *zap.Logger {

@@ -10,6 +10,8 @@ require (
 	github.com/go-redis/redis/v8 v8.11.4
 	github.com/gofiber/fiber/v2 v2.24.0
 	github.com/google/uuid v1.3.0
+	github.com/mattn/go-colorable v0.1.6
+	github.com/mattn/go-isatty v0.0.12
 	github.com/minio/minio-go/v7 v7.0.22
 	github.com/tidwall/gjson v1.13.0 // indirect
 	github.com/tidwall/sjson v1.2.4

@@ -7,10 +7,11 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"grest.dev/grest/log"
 	"grest.dev/grest/swagger"
 )
 
-const Version = "0.0.0"
+const Version = "v0.0.0"
 
 type App struct {
 	IsUseTLS              bool
@@ -98,16 +99,74 @@ func (app *App) startupMessage(addr string) {
 	if len(addrPart) > 1 {
 		addr = addr + ":" + addrPart[1]
 	}
-	fmt.Println(`
-        __________________________________________________
-       /         ____  __    ____  ___   _____ v` + Version + `    /
-      /      -- / __/  _ \  / __/ / __/ _   _/          /
-     /    ---- / / /  / _/ / _/  _\ \   / /            /
-    /     --- /___/ _/\ \ /___/ /___/  /_/            /
-   /      An instant, full-featured and scalable     /
-  /            REST APIs framework for Go           /
- /                 https://grest.dev               /
-/_________________________________________________/
 
-http server listening on http://` + addr)
+	msg := strings.Builder{}
+	msg.WriteString(log.Fmt(`        __________________________________________`, log.HiMagenta, log.Bold, log.Italic))
+	msg.WriteString("\n")
+
+	msg.WriteString(log.Fmt(`       /        `, log.HiMagenta, log.Bold, log.Italic))
+	msg.WriteString(log.Fmt(`____`, log.Red, log.Bold))
+	msg.WriteString(log.Fmt(`___  `, log.Yellow, log.Bold))
+	msg.WriteString(log.Fmt(`____`, log.Green, log.Bold))
+	msg.WriteString(log.Fmt(`____`, log.Blue, log.Bold))
+	msg.WriteString(log.Fmt(`_____ `, log.HiCyan, log.Bold))
+	msg.WriteString(log.Fmt(`         /`, log.HiMagenta, log.Bold, log.Italic))
+	msg.WriteString("\n")
+
+	msg.WriteString(log.Fmt(`      /     `, log.HiMagenta, log.Bold, log.Italic))
+	msg.WriteString(log.Fmt(`-- `, log.HiRed, log.BlinkSlow))
+	msg.WriteString(log.Fmt(`/ __/`, log.Red, log.Bold))
+	msg.WriteString(log.Fmt(` _ \`, log.Yellow, log.Bold))
+	msg.WriteString(log.Fmt(`/ __/`, log.Green, log.Bold))
+	msg.WriteString(log.Fmt(` __/`, log.Blue, log.Bold))
+	msg.WriteString(log.Fmt(`_  _/`, log.HiCyan, log.Bold))
+	msg.WriteString(log.Fmt(`         /`, log.HiMagenta, log.Bold, log.Italic))
+	msg.WriteString("\n")
+
+	msg.WriteString(log.Fmt(`     /   `, log.HiMagenta, log.Bold, log.Italic))
+	msg.WriteString(log.Fmt(`---- `, log.HiYellow, log.BlinkRapid))
+	msg.WriteString(log.Fmt(`/ / /`, log.Red, log.Bold))
+	msg.WriteString(log.Fmt(` / _/`, log.Yellow, log.Bold))
+	msg.WriteString(log.Fmt(` _/`, log.Green, log.Bold))
+	msg.WriteString(log.Fmt(`_\ \`, log.Blue, log.Bold))
+	msg.WriteString(log.Fmt(`  / /`, log.HiCyan, log.Bold))
+	msg.WriteString(log.Fmt(`          /`, log.HiMagenta, log.Bold, log.Italic))
+	msg.WriteString("\n")
+
+	msg.WriteString(log.Fmt(`    /    `, log.HiMagenta, log.Bold, log.Italic))
+	msg.WriteString(log.Fmt(`--- `, log.HiGreen, log.BlinkSlow))
+	msg.WriteString(log.Fmt(`/___/`, log.Red, log.Bold))
+	msg.WriteString(log.Fmt(`_/\ \`, log.Yellow, log.Bold))
+	msg.WriteString(log.Fmt(`___/`, log.Green, log.Bold))
+	msg.WriteString(log.Fmt(`___/`, log.Blue, log.Bold))
+	msg.WriteString(log.Fmt(` /_/ `, log.HiCyan, log.Bold))
+	msg.WriteString(log.Fmt(Version, log.BgRed))
+	msg.WriteString(log.Fmt(`   /`, log.HiMagenta, log.Bold, log.Italic))
+	msg.WriteString("\n")
+
+	msg.WriteString(log.Fmt(`   /`, log.HiMagenta, log.Bold, log.Italic))
+	msg.WriteString(` An instant, full-featured and scalable `)
+	msg.WriteString(log.Fmt(`/`, log.HiMagenta, log.Bold, log.Italic))
+	msg.WriteString("\n")
+
+	msg.WriteString(log.Fmt(`  /`, log.HiMagenta, log.Bold, log.Italic))
+	msg.WriteString(`       REST APIs framework for `)
+	msg.WriteString(log.Fmt(`Go`, log.HiCyan, log.Bold, log.Italic))
+	msg.WriteString(log.Fmt(`       /`, log.HiMagenta, log.Bold, log.Italic))
+	msg.WriteString("\n")
+
+	msg.WriteString(log.Fmt(` /             `, log.HiMagenta, log.Bold, log.Italic))
+	msg.WriteString(log.Fmt("https://grest.dev", log.Blue))
+	msg.WriteString(log.Fmt(`          /`, log.HiMagenta, log.Bold, log.Italic))
+	msg.WriteString("\n")
+
+	msg.WriteString(log.Fmt(`/________________________________________/`, log.HiMagenta, log.Bold, log.Italic))
+	msg.WriteString("\n")
+
+	msg.WriteString("\n")
+	msg.WriteString(`http server listening on `)
+	msg.WriteString(log.Fmt("http://"+addr, log.HiGreen))
+	msg.WriteString("\n")
+
+	fmt.Fprintln(log.Stdout, msg.String())
 }
