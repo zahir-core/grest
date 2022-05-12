@@ -486,11 +486,11 @@ func SetWhere(baseDB *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 								}
 							}
 							if lastSubkey == QueryOptInsensitiveLike || lastSubkey == QueryOptInsensitiveNotLike {
-								// check if field type is date/datetime , then cast to char ( compatible with postgrest & mysql )
-								if field.Type.Name() == "NullDateTime" || field.Type.Name() == "NullDate" {
-									column = "CAST(" + column + " AS CHAR)"
-								} else {
-									column = "LOWER(" + column + ")"
+								// check if field type is date/time and dialector is postgrest , then cast to char
+								if !strings.Contains(field.Type.Name(), "Date") && !strings.Contains(field.Type.Name(), "Time") {
+									column = "LOWER (" + column + ")"
+								} else if db.Dialector.Name() == "postgres" {
+									column = "CAST( " + column + " AS CHAR)"
 								}
 								val = strings.ToLower(val)
 							}
@@ -576,11 +576,11 @@ func SetWhere(baseDB *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 											}
 										}
 										if lastSubkey == QueryOptInsensitiveLike || lastSubkey == QueryOptInsensitiveNotLike {
-											// check if field type is date/datetime , then cast to char ( compatible with postgrest & mysql )
-											if field.Type.Name() == "NullDateTime" || field.Type.Name() == "NullDate" {
-												column = "CAST(" + column + " AS CHAR)"
-											} else {
-												column = "LOWER(" + column + ")"
+											// check if field type is date/time and dialector is postgrest , then cast to char
+											if !strings.Contains(field.Type.Name(), "Date") && !strings.Contains(field.Type.Name(), "Time") {
+												column = "LOWER (" + column + ")"
+											} else if db.Dialector.Name() == "postgres" {
+												column = "CAST( " + column + " AS CHAR)"
 											}
 											val = strings.ToLower(val)
 										}

@@ -1,12 +1,14 @@
 package db
 
 import (
+	"os"
+
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-func NewMockDB(isPrintQuery ...bool) (*gorm.DB, sqlmock.Sqlmock, error) {
+func NewMockDB() (*gorm.DB, sqlmock.Sqlmock, error) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		return nil, mock, err
@@ -18,7 +20,7 @@ func NewMockDB(isPrintQuery ...bool) (*gorm.DB, sqlmock.Sqlmock, error) {
 			PreferSimpleProtocol: true,
 		},
 	), &gorm.Config{})
-	if len(isPrintQuery) > 0 && isPrintQuery[0] {
+	if os.Getenv("IS_PRINT_SQL") == "true" {
 		gormDB = gormDB.Debug()
 	}
 	return gormDB, mock, err
