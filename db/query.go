@@ -486,7 +486,12 @@ func SetWhere(baseDB *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 								}
 							}
 							if lastSubkey == QueryOptInsensitiveLike || lastSubkey == QueryOptInsensitiveNotLike {
-								column = "LOWER(" + column + ")"
+								// check if field type is date/datetime , then cast to char ( compatible with postgrest & mysql )
+								if field.Type.Name() == "NullDateTime" || field.Type.Name() == "NullDate" {
+									column = "CAST(" + column + " AS CHAR)"
+								} else {
+									column = "LOWER(" + column + ")"
+								}
 								val = strings.ToLower(val)
 							}
 							if lastSubkey == QueryOptIn || lastSubkey == QueryOptNotIn {
@@ -571,7 +576,12 @@ func SetWhere(baseDB *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 											}
 										}
 										if lastSubkey == QueryOptInsensitiveLike || lastSubkey == QueryOptInsensitiveNotLike {
-											column = "lower(" + column + ")"
+											// check if field type is date/datetime , then cast to char ( compatible with postgrest & mysql )
+											if field.Type.Name() == "NullDateTime" || field.Type.Name() == "NullDate" {
+												column = "CAST(" + column + " AS CHAR)"
+											} else {
+												column = "LOWER(" + column + ")"
+											}
 											val = strings.ToLower(val)
 										}
 										if lastSubkey == QueryOptIn || lastSubkey == QueryOptNotIn {
