@@ -435,7 +435,11 @@ func SetWhere(baseDB *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 			if f.Column2 != "" {
 				db = db.Where(column + " " + f.Operator + " " + db.Statement.Quote(f.Column2))
 			} else if f.Value != nil {
-				db = db.Where(column+" "+f.Operator+" ?", f.Value)
+				if strings.Contains(column, "?") {
+					db = db.Where(column, f.Value)
+				} else {
+					db = db.Where(column+" "+f.Operator+" ?", f.Value)
+				}
 			} else if f.Operator == "=" {
 				db = db.Where(column + " IS NULL")
 			} else {
