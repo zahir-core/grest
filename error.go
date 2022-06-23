@@ -19,7 +19,7 @@ type Error struct {
 		Message string      `json:"message"`
 		Detail  interface{} `json:"detail,omitempty"`
 	} `json:"error"`
-	pcs []uintptr
+	PCs []uintptr `json:"-"`
 }
 
 type Trace struct {
@@ -34,7 +34,7 @@ func (e Error) Error() string {
 
 func (e Error) Trace() []Trace {
 	trace := []Trace{}
-	for _, pc := range e.pcs {
+	for _, pc := range e.PCs {
 		pc = pc - 1
 		fn := runtime.FuncForPC(pc)
 		if fn != nil {
@@ -52,7 +52,7 @@ func (e Error) Trace() []Trace {
 
 func (e Error) TraceSimple() map[string]string {
 	trace := map[string]string{}
-	for i, pc := range e.pcs {
+	for i, pc := range e.PCs {
 		pc = pc - 1
 		fn := runtime.FuncForPC(pc)
 		if fn != nil {
@@ -91,7 +91,7 @@ func NewError(statusCode int, message string, detail ...interface{}) error {
 	}
 
 	var pcs [32]uintptr
-	err.pcs = pcs[0:runtime.Callers(2, pcs[:])]
+	err.PCs = pcs[0:runtime.Callers(2, pcs[:])]
 	return err
 }
 
