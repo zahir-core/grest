@@ -28,6 +28,10 @@ type Trace struct {
 	LineNumber   int    `json:"line"`
 }
 
+func (e Error) Code() int {
+	return e.Err.Code
+}
+
 func (e Error) Error() string {
 	return e.Err.Message
 }
