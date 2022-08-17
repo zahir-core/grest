@@ -5,12 +5,11 @@ import (
 	"math"
 	"net/url"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"gorm.io/gorm"
-
-	"grest.dev/grest/convert"
 )
 
 // GREST support a common way for pagination, selecting fields, filtering, sorting, searching and other using URL query params
@@ -330,7 +329,7 @@ func CallMethod(ptr reflect.Value, methodName string, args []reflect.Value) []re
 }
 
 func SetTable(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
-	tableName := convert.ToSnakeCase(ptr.Type().Name())
+	tableName := ToSnakeCase(ptr.Type().Name())
 	tn := CallMethod(ptr, "TableName", []reflect.Value{})
 	if len(tn) > 0 {
 		tableName = tn[0].String()
@@ -348,6 +347,18 @@ func SetTable(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 	}
 
 	return db.Table(tableName + " AS " + Quote(db, tableAliasName))
+}
+
+func ToSnakeCase(str string, d ...string) string {
+	delimiter := "_"
+	if len(d) > 0 {
+		delimiter = d[0]
+	}
+	matchFirstCap := regexp.MustCompile("(.)([A-Z][a-z]+)")
+	matchAllCap := regexp.MustCompile("([a-z0-9])([A-Z])")
+	snake := matchFirstCap.ReplaceAllString(str, "${1}"+delimiter+"${2}")
+	snake = matchAllCap.ReplaceAllString(snake, "${1}"+delimiter+"${2}")
+	return strings.ToLower(snake)
 }
 
 func SetJoin(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {

@@ -1,4 +1,4 @@
-package httpclient
+package grest
 
 import (
 	"encoding/json"
@@ -20,7 +20,7 @@ func TestHttpClientSimple(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := New("GET", server.URL)
+	c := NewHttpClient("GET", server.URL)
 	res, err := c.Send()
 	if err != nil {
 		t.Errorf("Error occurred [%v]", err)
@@ -46,7 +46,7 @@ func TestHttpClientWithHeaderRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := New("GET", server.URL)
+	c := NewHttpClient("GET", server.URL)
 	c.AddHeader(headerKey, headerValue)
 	_, err := c.Send()
 	if err != nil {
@@ -61,7 +61,7 @@ func TestHttpClientWithMultipartBodyRequest(t *testing.T) {
 	}
 
 	expectedName := "some_value"
-	filename := "../zahir-logo.jpg"
+	filename := "zahir-logo.jpg"
 	file, err := os.Open(filename)
 	if err != nil {
 		t.Errorf("Error occurred when open file [%v]", err)
@@ -84,7 +84,7 @@ func TestHttpClientWithMultipartBodyRequest(t *testing.T) {
 		}))
 		defer server.Close()
 
-		c := New("POST", server.URL)
+		c := NewHttpClient("POST", server.URL)
 		c.AddMultipartBody(bodyRequest{
 			Name:  expectedName,
 			Image: file,
@@ -116,7 +116,7 @@ func TestHttpClientWithUrlEncodedBodyRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := New("POST", server.URL)
+	c := NewHttpClient("POST", server.URL)
 	c.AddUrlEncodedBody(bodyRequest{
 		Name: expectedName,
 	})
@@ -162,7 +162,7 @@ func TestHttpClientWithJsonBodyRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := New("POST", server.URL)
+	c := NewHttpClient("POST", server.URL)
 	c.AddJsonBody(bodyRequest{
 		Name: expectedName,
 		Age:  expectedAge,
@@ -209,7 +209,7 @@ func TestHttpClientWithXmlBodyRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := New("POST", server.URL)
+	c := NewHttpClient("POST", server.URL)
 	c.AddXmlBody(bodyRequest{
 		Name: expectedName,
 		Age:  expectedAge,
@@ -240,7 +240,7 @@ func TestHttpClientWithUnmarshalJsonBodyResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := New("GET", server.URL)
+	c := NewHttpClient("GET", server.URL)
 	c.Send()
 
 	b := bodyRequest{}
@@ -276,7 +276,7 @@ func TestHttpClientWithUnmarshalXmlBodyResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	c := New("GET", server.URL)
+	c := NewHttpClient("GET", server.URL)
 	c.Send()
 
 	b := bodyRequest{}

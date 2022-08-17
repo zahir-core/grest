@@ -1,7 +1,7 @@
 package telegram
 
 import (
-	"grest.dev/grest/httpclient"
+	"grest.dev/grest"
 )
 
 var (
@@ -32,7 +32,7 @@ func (m *Message) Send() error {
 	if m.ChatID == "" {
 		m.ChatID = chatId
 	}
-	c := httpclient.New("POST", baseUrl+botToken+"/sendMessage")
+	c := grest.NewHttpClient("POST", baseUrl+botToken+"/sendMessage")
 	c.AddJsonBody(map[string]interface{}{
 		"chat_id":    m.ChatID,
 		"parse_mode": "MarkdownV2",
@@ -43,7 +43,7 @@ func (m *Message) Send() error {
 }
 
 func SendAlert(message string) error {
-	c := httpclient.New("POST", baseUrl+botToken+"/sendMessage")
+	c := grest.NewHttpClient("POST", baseUrl+botToken+"/sendMessage")
 	c.AddJsonBody(map[string]interface{}{
 		"chat_id":    chatId,
 		"parse_mode": "MarkdownV2",

@@ -1,10 +1,9 @@
-package httpclient
+package grest
 
 import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,8 +13,6 @@ import (
 	"os"
 	"reflect"
 	"time"
-
-	"grest.dev/grest"
 )
 
 type HttpClient struct {
@@ -28,7 +25,7 @@ type HttpClient struct {
 	BodyResponse []byte
 }
 
-func New(method, url string) *HttpClient {
+func NewHttpClient(method, url string) *HttpClient {
 	return &HttpClient{Method: method, Url: url}
 }
 
@@ -76,7 +73,7 @@ func (c *HttpClient) AddMultipartBody(body interface{}) error {
 					key = t.Field(i).Tag.Get("json")
 				}
 				if key == "" {
-					key = grest.String{}.SnakeCase(t.Field(i).Name)
+					key = String{}.SnakeCase(t.Field(i).Name)
 				}
 				val := v.Field(i).Interface()
 				f, ok := val.(*os.File)
@@ -128,7 +125,7 @@ func (c *HttpClient) AddUrlEncodedBody(body interface{}) error {
 					key = t.Field(i).Tag.Get("json")
 				}
 				if key == "" {
-					key = grest.String{}.SnakeCase(t.Field(i).Name)
+					key = String{}.SnakeCase(t.Field(i).Name)
 				}
 				val := v.Field(i).Interface()
 				params.Add(key, fmt.Sprintf("%v", val))
@@ -209,11 +206,11 @@ func (c *HttpClient) Send() (*http.Response, error) {
 	}
 
 	if res.StatusCode >= 400 && res.StatusCode <= 499 {
-		return res, errors.New("Client Error")
+		return res, NewError(res.StatusCode, "Client Error")
 	} else if res.StatusCode >= 500 && res.StatusCode <= 599 {
-		return res, errors.New("Server Error")
-	} else if res.StatusCode < 100 || res.StatusCode >= 600 {
-		return res, errors.New("Unknown Error")
+		return res, NewError(res.StatusCode, "Server Error")
+	} else if res.StatusCode < 100 || res.StatusCode >= 400 {
+		return res, NewError(res.StatusCode, "Unknown Error")
 	}
 
 	return res, nil

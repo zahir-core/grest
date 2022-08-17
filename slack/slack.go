@@ -3,7 +3,7 @@ package slack
 import (
 	"errors"
 
-	"grest.dev/grest/httpclient"
+	"grest.dev/grest"
 )
 
 // https://api.slack.com/messaging/webhooks
@@ -45,7 +45,7 @@ func (m *Message) Send() error {
 	if !ok {
 		return errors.New("Slack webhook URL for " + m.ChatID + " is not found")
 	}
-	c := httpclient.New("POST", webhookUrl)
+	c := grest.NewHttpClient("POST", webhookUrl)
 	c.AddJsonBody(map[string]string{"text": m.Message})
 	_, err := c.Send()
 	return err
