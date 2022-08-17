@@ -15,7 +15,7 @@ import (
 	"reflect"
 	"time"
 
-	"grest.dev/grest/convert"
+	"grest.dev/grest"
 )
 
 type HttpClient struct {
@@ -76,7 +76,7 @@ func (c *HttpClient) AddMultipartBody(body interface{}) error {
 					key = t.Field(i).Tag.Get("json")
 				}
 				if key == "" {
-					key = convert.ToSnakeCase(t.Field(i).Name)
+					key = grest.String{}.SnakeCase(t.Field(i).Name)
 				}
 				val := v.Field(i).Interface()
 				f, ok := val.(*os.File)
@@ -128,7 +128,7 @@ func (c *HttpClient) AddUrlEncodedBody(body interface{}) error {
 					key = t.Field(i).Tag.Get("json")
 				}
 				if key == "" {
-					key = convert.ToSnakeCase(t.Field(i).Name)
+					key = grest.String{}.SnakeCase(t.Field(i).Name)
 				}
 				val := v.Field(i).Interface()
 				params.Add(key, fmt.Sprintf("%v", val))

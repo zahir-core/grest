@@ -270,3 +270,14 @@ func BenchmarkSetDeleteWithPrefixCacheWithRedis(b *testing.B) {
 		c.DeleteWithPrefix(prefix)
 	}
 }
+
+func BenchmarkSetDeleteWithPrefixCacheWithoutRedis(b *testing.B) {
+	prefix := "foo.bar.baz."
+	c := &Cache{}
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		cacheKey := prefix + uuid.NewString()
+		c.Set(cacheKey, map[string]bool{"ok": true})
+		c.DeleteWithPrefix(prefix)
+	}
+}
