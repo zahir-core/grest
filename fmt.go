@@ -1,4 +1,4 @@
-package log
+package grest
 
 import (
 	"os"
@@ -11,64 +11,64 @@ import (
 
 // Base attributes
 const (
-	Reset uint8 = iota
-	Bold
-	Faint
-	Italic
-	Underline
-	BlinkSlow
-	BlinkRapid
-	ReverseVideo
-	Concealed
-	CrossedOut
+	FmtReset uint8 = iota
+	FmtBold
+	FmtFaint
+	FmtItalic
+	FmtUnderline
+	FmtBlinkSlow
+	FmtBlinkRapid
+	FmtReverseVideo
+	FmtConcealed
+	FmtCrossedOut
 )
 
 // Foreground text colors
 const (
-	Black uint8 = iota + 30
-	Red
-	Green
-	Yellow
-	Blue
-	Magenta
-	Cyan
-	White
+	FmtBlack uint8 = iota + 30
+	FmtRed
+	FmtGreen
+	FmtYellow
+	FmtBlue
+	FmtMagenta
+	FmtCyan
+	FmtWhite
 )
 
 // Foreground Hi-Intensity text colors
 const (
-	HiBlack uint8 = iota + 90
-	HiRed
-	HiGreen
-	HiYellow
-	HiBlue
-	HiMagenta
-	HiCyan
-	HiWhite
+	FmtHiBlack uint8 = iota + 90
+	FmtHiRed
+	FmtHiGreen
+	FmtHiYellow
+	FmtHiBlue
+	FmtHiMagenta
+	FmtHiCyan
+	FmtHiWhite
 )
 
 // Background text colors
 const (
-	BgBlack uint8 = iota + 40
-	BgRed
-	BgGreen
-	BgYellow
-	BgBlue
-	BgMagenta
-	BgCyan
-	BgWhite
+	FmtBgBlack uint8 = iota + 40
+	FmtBgRed
+	FmtBgGreen
+	FmtBgYellow
+	FmtBgBlue
+	FmtBgMagenta
+	FmtBgCyan
+	FmtBgWhite
 )
 
 // Background Hi-Intensity text colors
 const (
-	BgHiBlack uint8 = iota + 100
-	BgHiRed
-	BgHiGreen
-	BgHiYellow
-	BgHiBlue
-	BgHiMagenta
-	BgHiCyan
-	BgHiWhite
+	FmtBgHiBlack uint8 = iota + 100
+	FmtBgHiRed
+	FmtBgHiGreen
+	FmtBgHiYellow
+	FmtBgHiBlue
+	FmtBgHiMagenta
+	FmtBgHiCyan
+	FmtBgHiWhite
 )
 
 var (
@@ -76,7 +76,7 @@ var (
 	DisableFmt = (!isatty.IsTerminal(os.Stdout.Fd()) && !isatty.IsCygwinTerminal(os.Stdout.Fd()))
 
 	// Output defines the standard output of the print functions. By default os.Stdout is used.
-	Stdout = colorable.NewColorableStdout()
+	FmtStdout = colorable.NewColorableStdout()
 )
 
 // Fmt format log with attribute

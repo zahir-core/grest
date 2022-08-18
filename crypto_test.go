@@ -1,4 +1,4 @@
-package crypto
+package grest
 
 import (
 	"testing"
@@ -17,17 +17,17 @@ func newEncryptDecryptTestData() []string {
 }
 
 func TestEncryptDecrypt(t *testing.T) {
-	Configure("972ec8dd995743d981417981ac2f30db")
+	c := NewCrypto("972ec8dd995743d981417981ac2f30db")
 	data := newEncryptDecryptTestData()
 	for _, plaintext := range data {
-		encrypted, err := Encrypt(plaintext)
+		encrypted, err := c.Encrypt(plaintext)
 		if err != nil {
 			t.Errorf("Test encrypt : Error occurred [%v]", err)
 		}
 		if encrypted == plaintext {
 			t.Errorf("Test encrypt : encrypted must not be equal to [%v]", plaintext)
 		}
-		decrypted, err := Decrypt(encrypted)
+		decrypted, err := c.Decrypt(encrypted)
 		if err != nil {
 			t.Errorf("Test decrypt : Error occurred [%v]", err)
 		}
@@ -38,13 +38,14 @@ func TestEncryptDecrypt(t *testing.T) {
 }
 
 func BenchmarkEncryptDecrypt(b *testing.B) {
+	c := NewCrypto()
 	data := newEncryptDecryptTestData()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		for _, d := range data {
-			encrypted, err := Encrypt(d)
+			encrypted, err := c.Encrypt(d)
 			if err == nil {
-				Decrypt(encrypted)
+				c.Decrypt(encrypted)
 			}
 		}
 	}
