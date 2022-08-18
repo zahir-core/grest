@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"gorm.io/gorm"
+
+	"grest.dev/grest"
 )
 
 // GREST support a common way for pagination, selecting fields, filtering, sorting, searching and other using URL query params
@@ -237,7 +239,7 @@ func fixDataType(data map[string]interface{}, ptr reflect.Value) map[string]inte
 			jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
 			for key, val := range data {
 				if key == jsonTag {
-					b := NullBool{}
+					b := grest.NullBool{}
 					b.Scan(val)
 					data[key] = b
 				}
@@ -246,7 +248,7 @@ func fixDataType(data map[string]interface{}, ptr reflect.Value) map[string]inte
 			jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
 			for key, val := range data {
 				if key == jsonTag {
-					b := NullDate{}
+					b := grest.NullDate{}
 					b.Scan(val)
 					data[key] = b
 				}

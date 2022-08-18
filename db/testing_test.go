@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
+
+	"grest.dev/grest"
 )
 
 func TestMockDBCreate(t *testing.T) {
@@ -72,19 +74,19 @@ type Contact struct {
 
 type Article struct {
 	Model
-	ID          NullUUID     `json:"id"           db:"a.id"`
-	Title       NullString   `json:"title"        db:"a.title"`
-	Content     NullString   `json:"content"      db:"a.content"`
-	AuthorID    NullUUID     `json:"author.id"    db:"a.author_id"`
-	AuthorName  NullString   `json:"author.name"  db:"u.name"`
-	AuthorEmail NullString   `json:"author.email" db:"u.email"`
-	Categories  []Category   `json:"categories"   db:"ac.article_id=id"`
-	Detail      NullJSON     `json:"detail"       db:"a.detail"`
-	IsActive    NullBool     `json:"is_active"    db:"a.is_active"`
-	IsHidden    NullBool     `json:"is_hidden"    db:"a.is_hidden,hide"`
-	CreatedAt   NullDateTime `json:"created_at"   db:"a.created_at"`
-	UpdatedAt   NullDateTime `json:"updated_at"   db:"a.updated_at"`
-	DeletedAt   NullDateTime `json:"deleted_at"   db:"a.deleted_at"`
+	ID          grest.NullUUID     `json:"id"           db:"a.id"`
+	Title       grest.NullString   `json:"title"        db:"a.title"`
+	Content     grest.NullString   `json:"content"      db:"a.content"`
+	AuthorID    grest.NullUUID     `json:"author.id"    db:"a.author_id"`
+	AuthorName  grest.NullString   `json:"author.name"  db:"u.name"`
+	AuthorEmail grest.NullString   `json:"author.email" db:"u.email"`
+	Categories  []Category         `json:"categories"   db:"ac.article_id=id"`
+	Detail      grest.NullJSON     `json:"detail"       db:"a.detail"`
+	IsActive    grest.NullBool     `json:"is_active"    db:"a.is_active"`
+	IsHidden    grest.NullBool     `json:"is_hidden"    db:"a.is_hidden,hide"`
+	CreatedAt   grest.NullDateTime `json:"created_at"   db:"a.created_at"`
+	UpdatedAt   grest.NullDateTime `json:"updated_at"   db:"a.updated_at"`
+	DeletedAt   grest.NullDateTime `json:"deleted_at"   db:"a.deleted_at"`
 }
 
 func (Article) TableVersion() string {
@@ -113,17 +115,17 @@ func (a *Article) SetSort() {
 
 type Category struct {
 	Model
-	ID          NullUUID     `json:"id"           db:"c.id"`
-	Code        NullString   `json:"code"         db:"c.code"`
-	Name        NullString   `json:"name"         db:"c.name"`
-	IsActive    NullBool     `json:"is_active"    db:"c.is_active"`
-	AuthorID    NullUUID     `json:"author.id"    db:"c.author_id"`
-	AuthorName  NullString   `json:"author.name"  db:"u.name"`
-	AuthorEmail NullString   `json:"author.email" db:"u.email"`
-	CreatedAt   NullDateTime `json:"created.time" db:"c.created_at"`
-	UpdatedAt   NullDateTime `json:"updated.time" db:"c.updated_at"`
-	DeletedAt   NullDateTime `json:"deleted.time" db:"c.deleted_at"`
-	ArticleID   NullUUID     `json:"-"            db:"ac.article_id"`
+	ID          grest.NullUUID     `json:"id"           db:"c.id"`
+	Code        grest.NullString   `json:"code"         db:"c.code"`
+	Name        grest.NullString   `json:"name"         db:"c.name"`
+	IsActive    grest.NullBool     `json:"is_active"    db:"c.is_active"`
+	AuthorID    grest.NullUUID     `json:"author.id"    db:"c.author_id"`
+	AuthorName  grest.NullString   `json:"author.name"  db:"u.name"`
+	AuthorEmail grest.NullString   `json:"author.email" db:"u.email"`
+	CreatedAt   grest.NullDateTime `json:"created.time" db:"c.created_at"`
+	UpdatedAt   grest.NullDateTime `json:"updated.time" db:"c.updated_at"`
+	DeletedAt   grest.NullDateTime `json:"deleted.time" db:"c.deleted_at"`
+	ArticleID   grest.NullUUID     `json:"-"            db:"ac.article_id"`
 }
 
 func (Category) TableName() string {

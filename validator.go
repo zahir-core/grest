@@ -9,8 +9,6 @@ import (
 	"github.com/go-playground/locales"
 	ut "github.com/go-playground/universal-translator"
 	goValidator "github.com/go-playground/validator/v10"
-
-	"grest.dev/grest/db"
 )
 
 type Validator struct {
@@ -22,16 +20,16 @@ func NewValidator() Validator {
 	validator := Validator{Validate: goValidator.New()}
 	validator.RegisterTagNameFunc(validator.ValidateTagNamer)
 	validator.RegisterCustomTypeFunc(validator.ValidateValuer,
-		db.NullBool{},
-		db.NullInt64{},
-		db.NullFloat64{},
-		db.NullString{},
-		db.NullDateTime{},
-		db.NullDate{},
-		db.NullTime{},
-		db.NullText{},
-		db.NullJSON{},
-		db.NullUUID{},
+		NullBool{},
+		NullInt64{},
+		NullFloat64{},
+		NullString{},
+		NullDateTime{},
+		NullDate{},
+		NullTime{},
+		NullText{},
+		NullJSON{},
+		NullUUID{},
 	)
 	return validator
 }
