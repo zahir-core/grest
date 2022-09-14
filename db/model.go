@@ -61,7 +61,7 @@ type Relation struct {
 type Filter struct {
 	Column   string // direct to database
 	Operator string
-	Value    interface{}
+	Value    any
 	Column2  string
 	JsonKey  string // dot notation paths of json field
 }
@@ -81,7 +81,7 @@ func NewRelation(joinType, tableName, tableAliasName string, on []Filter) Relati
 	return r
 }
 
-func NewFilter(column, operator string, value interface{}, opt ...string) Filter {
+func NewFilter(column, operator string, value any, opt ...string) Filter {
 	f := Filter{}
 	f.Column = column
 	f.Operator = operator

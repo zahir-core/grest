@@ -34,7 +34,7 @@ func (c *Cache) Configure() error {
 	return nil
 }
 
-func (c *Cache) Get(key string, val interface{}) error {
+func (c *Cache) Get(key string, val any) error {
 	if c.IsUseRedis {
 		value, err := c.RedisClient.Get(c.Ctx, key).Result()
 		if err != nil {
@@ -57,7 +57,7 @@ func (c *Cache) Get(key string, val interface{}) error {
 	return nil
 }
 
-func (c *Cache) Set(key string, val interface{}, e ...time.Duration) error {
+func (c *Cache) Set(key string, val any, e ...time.Duration) error {
 	expiration := c.Exp
 	if len(e) > 0 {
 		expiration = e[0]

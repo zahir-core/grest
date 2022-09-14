@@ -36,7 +36,7 @@ func (n *NullBool) Val() bool {
 }
 
 // Scan implements the Scanner interface.
-func (n *NullBool) Scan(value interface{}) error {
+func (n *NullBool) Scan(value any) error {
 	if value == nil {
 		n.Bool, n.Valid = false, false
 		return nil
@@ -489,7 +489,7 @@ func (NullDate) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 }
 
 // Scan implements sql.Scanner interface and scans value into Date
-func (n *NullDate) Scan(value interface{}) error {
+func (n *NullDate) Scan(value any) error {
 	if value == nil {
 		return nil
 	}
@@ -579,7 +579,7 @@ func (NullTime) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 }
 
 // Scan implements sql.Scanner interface and scans value into Time
-func (t *NullTime) Scan(value interface{}) error {
+func (t *NullTime) Scan(value any) error {
 	if value == nil {
 		t.String, t.Valid = "", false
 		return nil
@@ -640,10 +640,10 @@ func (NullText) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 type NullJSON struct {
 	String string `json:"-"`
 	Valid  bool   `json:"-"`
-	Data   interface{}
+	Data   any
 }
 
-func (n *NullJSON) Set(val interface{}) {
+func (n *NullJSON) Set(val any) {
 	b, err := json.Marshal(val)
 	if err == nil {
 		n.String = string(b)
@@ -676,7 +676,7 @@ func (n *NullJSON) UnmarshalJSON(data []byte) error {
 }
 
 // Scan implements the Scanner interface.
-func (n *NullJSON) Scan(value interface{}) error {
+func (n *NullJSON) Scan(value any) error {
 	ns := sql.NullString{}
 	err := ns.Scan(value)
 	n.String = ns.String

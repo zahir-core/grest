@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func LoadEnv(key string, value interface{}) {
+func LoadEnv(key string, value any) {
 	val := reflect.ValueOf(value)
 	if val.Kind() != reflect.Ptr {
 		return

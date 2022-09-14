@@ -9,13 +9,9 @@ import (
 	"net/http"
 )
 
-var (
-	TelegramBaseURL       = "https://api.telegram.org"
-	TelegramBotToken      = ""
-	TelegramDefaultChatID = ""
-)
-
 type Telegram struct {
+	BaseURL     string
+	BotToken    string
 	ChatID      string
 	ParseMode   string
 	Text        string
@@ -23,12 +19,18 @@ type Telegram struct {
 	Audio       *multipart.FileHeader
 	Video       *multipart.FileHeader
 	Document    *multipart.FileHeader
-	ReplyMarkup interface{}
+	ReplyMarkup any
 }
 
 func (t Telegram) Send() error {
+	if t.BaseURL == "" {
+		t.BaseURL = "https://api.telegram.org"
+	}
+	if t.BotToken == "" {
+		return NewError(http.StatusInternalServerError, "BotToken is required")
+	}
 	if t.ChatID == "" {
-		t.ChatID = TelegramDefaultChatID
+		return NewError(http.StatusInternalServerError, "ChatID is required")
 	}
 	if t.ParseMode == "" {
 		t.ParseMode = "MarkdownV2"
@@ -120,7 +122,7 @@ func (t Telegram) Send() error {
 		return NewError(http.StatusInternalServerError, err.Error())
 	}
 
-	req, err := http.NewRequest("POST", TelegramBaseURL+"/"+TelegramBotToken+"/"+endPoint, body)
+	req, err := http.NewRequest("POST", t.BaseURL+"/"+t.BotToken+"/"+endPoint, body)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -132,7 +134,7 @@ func (t Telegram) Send() error {
 		if err != nil {
 			return NewError(http.StatusInternalServerError, err.Error())
 		}
-		r := map[string]interface{}{}
+		r := map[string]any{}
 		json.Unmarshal(b, &r)
 		msg, _ := r["description"].(string)
 		return NewError(http.StatusInternalServerError, msg, r)

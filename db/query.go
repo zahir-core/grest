@@ -107,10 +107,10 @@ var (
 )
 
 type queryResult struct {
-	Dest  interface{}              // pointer of struct or slice
-	Row   map[string]interface{}   // first result
-	Rows  []map[string]interface{} // find result
-	Error error                    // error
+	Dest  any              // pointer of struct or slice
+	Row   map[string]any   // first result
+	Rows  []map[string]any // find result
+	Error error            // error
 }
 
 func (q *queryResult) Marshal() ([]byte, error) {
@@ -122,7 +122,7 @@ func (q *queryResult) Marshal() ([]byte, error) {
 	return []byte{}, q.Error
 }
 
-func (q *queryResult) Unmarshal(v ...interface{}) error {
+func (q *queryResult) Unmarshal(v ...any) error {
 	if q.Error != nil {
 		return q.Error
 	}
@@ -137,7 +137,7 @@ func (q *queryResult) Unmarshal(v ...interface{}) error {
 	return json.Unmarshal(b, dest)
 }
 
-func First(db *gorm.DB, dest interface{}, query url.Values) *queryResult {
+func First(db *gorm.DB, dest any, query url.Values) *queryResult {
 	if reflect.TypeOf(dest).Kind() != reflect.Ptr {
 		return &queryResult{Error: gorm.ErrInvalidValue}
 	}
@@ -154,7 +154,7 @@ func First(db *gorm.DB, dest interface{}, query url.Values) *queryResult {
 	return &queryResult{Error: gorm.ErrRecordNotFound}
 }
 
-func Find(db *gorm.DB, dest interface{}, query url.Values) *queryResult {
+func Find(db *gorm.DB, dest any, query url.Values) *queryResult {
 	if reflect.TypeOf(dest).Kind() != reflect.Ptr {
 		return &queryResult{Error: gorm.ErrInvalidValue}
 	}
@@ -169,7 +169,7 @@ func Find(db *gorm.DB, dest interface{}, query url.Values) *queryResult {
 	return &queryResult{Rows: rows, Error: err}
 }
 
-func PaginationInfo(db *gorm.DB, dest interface{}, query url.Values) (int64, int64, int64, int64, error) {
+func PaginationInfo(db *gorm.DB, dest any, query url.Values) (int64, int64, int64, int64, error) {
 	if reflect.TypeOf(dest).Kind() != reflect.Ptr {
 		return 0, 0, 0, 0, gorm.ErrInvalidValue
 	}
@@ -188,8 +188,8 @@ func PaginationInfo(db *gorm.DB, dest interface{}, query url.Values) (int64, int
 	return count, page, limit, pageCount, nil
 }
 
-func FindRows(baseDB *gorm.DB, ptr reflect.Value, query url.Values) ([]map[string]interface{}, error) {
-	rows := []map[string]interface{}{}
+func FindRows(baseDB *gorm.DB, ptr reflect.Value, query url.Values) ([]map[string]any, error) {
+	rows := []map[string]any{}
 	db := baseDB.Session(&gorm.Session{})
 	db = SetTable(db, ptr, query)
 	db = SetJoin(db, ptr, query)
@@ -230,7 +230,7 @@ func GetPaginationQuery(query url.Values) (int64, int64) {
 	return int64(page), int64(limit)
 }
 
-func fixDataType(data map[string]interface{}, ptr reflect.Value) map[string]interface{} {
+func fixDataType(data map[string]any, ptr reflect.Value) map[string]any {
 	t := ptr.Elem().Type()
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
@@ -257,7 +257,7 @@ func fixDataType(data map[string]interface{}, ptr reflect.Value) map[string]inte
 			jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
 			for key, val := range data {
 				if key == jsonTag {
-					var v interface{}
+					var v any
 					var err error
 					s, isString := val.(string)
 					if isString {
@@ -276,7 +276,7 @@ func fixDataType(data map[string]interface{}, ptr reflect.Value) map[string]inte
 	return data
 }
 
-func IncludeArray(db *gorm.DB, data map[string]interface{}, ptr reflect.Value, query url.Values) (map[string]interface{}, error) {
+func IncludeArray(db *gorm.DB, data map[string]any, ptr reflect.Value, query url.Values) (map[string]any, error) {
 	t := ptr.Elem().Type()
 	includes := strings.Split(query.Get(QueryInclude), ",")
 	isIncludeAll := len(includes) > 0 && includes[0] == "all"
@@ -301,7 +301,7 @@ func IncludeArray(db *gorm.DB, data map[string]interface{}, ptr reflect.Value, q
 					}
 				}
 			} else {
-				data[jsonTag] = []map[string]interface{}{}
+				data[jsonTag] = []map[string]any{}
 			}
 		}
 	}
@@ -382,7 +382,7 @@ func SetJoin(db *gorm.DB, ptr reflect.Value, query url.Values) *gorm.DB {
 			joinQuery.WriteString(" " + rel.TableName)
 			joinQuery.WriteString(" AS " + Quote(db, rel.TableAliasName))
 			joinConditions := []string{}
-			args := []interface{}{}
+			args := []any{}
 			for _, rc := range rel.RelationCondition {
 				joinCondition := strings.Builder{}
 				joinCondition.WriteString(db.Statement.Quote(rc.Column))

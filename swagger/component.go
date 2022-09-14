@@ -9,7 +9,7 @@ type Component interface {
 	Accept() string
 	Produce() string
 	Security() []string
-	RequestBody() interface{}
+	RequestBody() any
 	SuccessResponses() []Response
 	FailureResponses() []Response
 	ExternalDoc() ExternalDoc
@@ -24,7 +24,7 @@ type Route struct {
 type Response struct {
 	StatusCode int
 	Header     http.Header
-	Body       interface{}
+	Body       any
 }
 
 // // used by swagger api documentation generator

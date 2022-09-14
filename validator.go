@@ -42,7 +42,7 @@ func (Validator) ValidateTagNamer(fld reflect.StructField) string {
 	return name
 }
 
-func (Validator) ValidateValuer(field reflect.Value) interface{} {
+func (Validator) ValidateValuer(field reflect.Value) any {
 	if valuer, ok := field.Interface().(driver.Valuer); ok {
 		val, err := valuer.Value()
 		if err == nil {
@@ -66,7 +66,7 @@ func (validator *Validator) RegisterTranslator(lang string, lt locales.Translato
 	return nil
 }
 
-func (validator *Validator) IsValid(v interface{}, tag string) bool {
+func (validator *Validator) IsValid(v any, tag string) bool {
 	err := validator.Var(v, tag)
 	if err != nil {
 		return false
@@ -74,7 +74,7 @@ func (validator *Validator) IsValid(v interface{}, tag string) bool {
 	return true
 }
 
-func (validator *Validator) ValidateStruct(v interface{}, lang string) error {
+func (validator *Validator) ValidateStruct(v any, lang string) error {
 	trans, ok := validator.I18n[lang]
 	if !ok {
 		trans, _ = validator.I18n["en"]
@@ -82,14 +82,14 @@ func (validator *Validator) ValidateStruct(v interface{}, lang string) error {
 	err := validator.Struct(v)
 	if err != nil {
 		message := ""
-		detail := map[string]interface{}{}
+		detail := map[string]any{}
 		errs := err.(goValidator.ValidationErrors)
 		for _, e := range errs {
 			msg := e.Translate(trans)
 			if message == "" {
 				message = msg
 			}
-			detail[e.Field()] = map[string]interface{}{e.Tag(): msg}
+			detail[e.Field()] = map[string]any{e.Tag(): msg}
 		}
 		return NewError(http.StatusBadRequest, message, detail)
 	}

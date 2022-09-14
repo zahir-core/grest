@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var dbMigration = map[string]map[string]interface{}{}
+var dbMigration = map[string]map[string]any{}
 
 type MigrationTableInterface interface {
 	TableName() string
@@ -24,7 +24,7 @@ func (MigrationTable) MigrationKey() string {
 	return "table_versions"
 }
 
-func RegisterTable(connName string, tableStruct interface{}) error {
+func RegisterTable(connName string, tableStruct any) error {
 	t, ok := tableStruct.(interface {
 		TableName() string
 	})
@@ -35,7 +35,7 @@ func RegisterTable(connName string, tableStruct interface{}) error {
 	if ok {
 		cfg[t.TableName()] = tableStruct
 	} else {
-		cfg = map[string]interface{}{t.TableName(): tableStruct}
+		cfg = map[string]any{t.TableName(): tableStruct}
 	}
 
 	dbMigration[connName] = cfg
@@ -54,7 +54,7 @@ func Migrate(tx *gorm.DB, connName string, migrationTable MigrationTableInterfac
 		return err
 	}
 
-	migrationData := map[string]interface{}{}
+	migrationData := map[string]any{}
 	tx.Table(tableName).
 		Where(keyField+" = ?", migrationKey).
 		Select(valueField + " as " + Quote(tx, "value")).

@@ -39,10 +39,10 @@ func (c *HttpClient) AddHeader(key, value string) {
 	}
 }
 
-func (c *HttpClient) AddMultipartBody(body interface{}) error {
+func (c *HttpClient) AddMultipartBody(body any) error {
 	b := &bytes.Buffer{}
 	writer := multipart.NewWriter(b)
-	data, ok := body.(map[string]interface{})
+	data, ok := body.(map[string]any)
 	if ok {
 		for k, v := range data {
 			f, ok := v.(*os.File)
@@ -104,9 +104,9 @@ func (c *HttpClient) AddMultipartBody(body interface{}) error {
 	return nil
 }
 
-func (c *HttpClient) AddUrlEncodedBody(body interface{}) error {
+func (c *HttpClient) AddUrlEncodedBody(body any) error {
 	params := url.Values{}
-	data, ok := body.(map[string]interface{})
+	data, ok := body.(map[string]any)
 	if ok {
 		for k, v := range data {
 			params.Add(k, fmt.Sprintf("%v", v))
@@ -142,7 +142,7 @@ func (c *HttpClient) AddUrlEncodedBody(body interface{}) error {
 	return nil
 }
 
-func (c *HttpClient) AddJsonBody(body interface{}) error {
+func (c *HttpClient) AddJsonBody(body any) error {
 	b, err := json.Marshal(body)
 	if err != nil {
 		return err
@@ -155,7 +155,7 @@ func (c *HttpClient) AddJsonBody(body interface{}) error {
 	return nil
 }
 
-func (c *HttpClient) AddXmlBody(body interface{}) error {
+func (c *HttpClient) AddXmlBody(body any) error {
 	b, err := xml.Marshal(body)
 	if err != nil {
 		return err
@@ -216,10 +216,10 @@ func (c *HttpClient) Send() (*http.Response, error) {
 	return res, nil
 }
 
-func (c *HttpClient) UnmarshalJson(v interface{}) error {
+func (c *HttpClient) UnmarshalJson(v any) error {
 	return json.Unmarshal(c.BodyResponse, v)
 }
 
-func (c *HttpClient) UnmarshalXml(v interface{}) error {
+func (c *HttpClient) UnmarshalXml(v any) error {
 	return xml.Unmarshal(c.BodyResponse, v)
 }

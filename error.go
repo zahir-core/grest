@@ -15,9 +15,9 @@ import (
 // Error is an implementation of error.
 type Error struct {
 	Err struct {
-		Code    int         `json:"code"`
-		Message string      `json:"message"`
-		Detail  interface{} `json:"detail,omitempty"`
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Detail  any    `json:"detail,omitempty"`
 	} `json:"error"`
 	PCs []uintptr `json:"-"`
 }
@@ -86,7 +86,7 @@ func (e Error) TraceSimple() map[string]string {
 }
 
 // NewError returns an error that formats as the given text with statusCode and detail if needed.
-func NewError(statusCode int, message string, detail ...interface{}) error {
+func NewError(statusCode int, message string, detail ...any) error {
 	err := Error{}
 	err.Err.Code = statusCode
 	err.Err.Message = message

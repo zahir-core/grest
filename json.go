@@ -16,12 +16,12 @@ type JSONSeparator struct {
 }
 
 type JSON struct {
-	Data    interface{}
+	Data    any
 	IsMerge bool
 }
 
-func NewJSON(data interface{}, isKeepOriginalData ...bool) JSON {
-	var v interface{}
+func NewJSON(data any, isKeepOriginalData ...bool) JSON {
+	var v any
 	var isMerge bool
 	bt, isByte := data.([]byte) // from json byte
 	if !isByte {
@@ -63,7 +63,7 @@ func (j JSON) MarshalIndent(indent string) ([]byte, error) {
 	return b, nil
 }
 
-func (j JSON) Unmarshal(v interface{}) error {
+func (j JSON) Unmarshal(v any) error {
 	data, err := j.Marshal()
 	if err != nil {
 		return NewError(http.StatusInternalServerError, err.Error())
@@ -80,9 +80,9 @@ func (j JSON) ToFlat(separator ...JSONSeparator) JSON {
 	if len(separator) > 0 {
 		sep = separator[0]
 	}
-	mp, isMap := j.Data.(map[string]interface{})
+	mp, isMap := j.Data.(map[string]any)
 	if isMap {
-		result := make(map[string]interface{})
+		result := make(map[string]any)
 		if j.IsMerge {
 			result = mp
 		}
@@ -90,12 +90,12 @@ func (j JSON) ToFlat(separator ...JSONSeparator) JSON {
 		return JSON{Data: result}
 	}
 
-	slc, isSlice := j.Data.([]interface{})
+	slc, isSlice := j.Data.([]any)
 	if isSlice {
-		var newSlice []interface{}
+		var newSlice []any
 		for _, s := range slc {
-			var newVal interface{}
-			sMap, isSMap := s.(map[string]interface{})
+			var newVal any
+			sMap, isSMap := s.(map[string]any)
 			if isSMap {
 				newVal = JSON{Data: sMap}.ToFlat(separator...).Data
 			} else {
@@ -109,21 +109,21 @@ func (j JSON) ToFlat(separator ...JSONSeparator) JSON {
 	return JSON{Data: j.Data}
 }
 
-func (j JSON) ToFlatMap(flatMap map[string]interface{}, data interface{}, sep JSONSeparator, isTop bool, pref ...string) {
+func (j JSON) ToFlatMap(flatMap map[string]any, data any, sep JSONSeparator, isTop bool, pref ...string) {
 	prefix := ""
 	if len(pref) > 0 {
 		prefix = pref[0]
 	}
-	assign := func(newKey string, v interface{}) {
+	assign := func(newKey string, v any) {
 		switch v.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			j.ToFlatMap(flatMap, v, sep, false, newKey)
 		default:
 			flatMap[newKey] = JSON{Data: v}.ToFlat(sep).Data
 		}
 	}
 
-	mp, isMap := data.(map[string]interface{})
+	mp, isMap := data.(map[string]any)
 	if isMap {
 		for k, v := range mp {
 			newKey := j.JoinKey(prefix, k, sep, isTop)
@@ -149,17 +149,17 @@ func (j JSON) ToStructured(separator ...JSONSeparator) JSON {
 	if len(separator) > 0 {
 		sep = separator[0]
 	}
-	mp, isMap := j.Data.(map[string]interface{})
+	mp, isMap := j.Data.(map[string]any)
 	if isMap {
 		return JSON{Data: j.ToStructuredMap(mp, sep)}
 	}
 
-	slc, isSlice := j.Data.([]interface{})
+	slc, isSlice := j.Data.([]any)
 	if isSlice {
-		var newSlice []interface{}
+		var newSlice []any
 		for _, s := range slc {
-			var newVal interface{}
-			sMap, isSMap := s.(map[string]interface{})
+			var newVal any
+			sMap, isSMap := s.(map[string]any)
 			if isSMap {
 				newVal = JSON{Data: sMap}.ToStructured(separator...).Data
 			} else if s != nil {
@@ -173,7 +173,7 @@ func (j JSON) ToStructured(separator ...JSONSeparator) JSON {
 	return JSON{Data: j.Data}
 }
 
-func (j JSON) ToStructuredMap(m map[string]interface{}, sep JSONSeparator) map[string]interface{} {
+func (j JSON) ToStructuredMap(m map[string]any, sep JSONSeparator) map[string]any {
 	jsonByte := []byte("{}")
 	for k, v := range m {
 		if sep.Before != "" {
@@ -182,12 +182,12 @@ func (j JSON) ToStructuredMap(m map[string]interface{}, sep JSONSeparator) map[s
 		if sep.After != "" {
 			k = strings.ReplaceAll(k, sep.After, "")
 		}
-		slc, isSlice := v.([]interface{})
+		slc, isSlice := v.([]any)
 		if isSlice {
 			if len(slc) > 0 {
 				for i, s := range slc {
 					iString := strconv.Itoa(i)
-					sliceMap, isSliceMap := s.(map[string]interface{})
+					sliceMap, isSliceMap := s.(map[string]any)
 					if isSliceMap {
 						jsonByte, _ = sjson.SetBytes(jsonByte, k+"."+iString, j.ToStructuredMap(sliceMap, sep))
 					} else if s != nil {
@@ -195,14 +195,14 @@ func (j JSON) ToStructuredMap(m map[string]interface{}, sep JSONSeparator) map[s
 					}
 				}
 			} else {
-				jsonByte, _ = sjson.SetBytes(jsonByte, k, []interface{}{})
+				jsonByte, _ = sjson.SetBytes(jsonByte, k, []any{})
 
 			}
 		} else if v != nil {
 			jsonByte, _ = sjson.SetBytes(jsonByte, k, v)
 		}
 	}
-	res := map[string]interface{}{}
+	res := map[string]any{}
 	json.Unmarshal(jsonByte, &res)
 	return res
 }

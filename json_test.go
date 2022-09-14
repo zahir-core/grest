@@ -18,14 +18,14 @@ func (d sampleData) String() string {
 	return string(d.data)
 }
 
-func (d sampleData) Any() interface{} {
-	var v interface{}
+func (d sampleData) Any() any {
+	var v any
 	json.Unmarshal(d.data, &v)
 	return v
 }
 
 func (d sampleData) flatObject() sampleData {
-	var v interface{}
+	var v any
 	flatRaw := d.flatRaw()
 	flat := []byte(flatRaw)
 	err := json.Unmarshal(flat, &v)
@@ -42,7 +42,7 @@ func (d sampleData) flatArray() sampleData {
 }
 
 func (d sampleData) structuredObject() sampleData {
-	var v interface{}
+	var v any
 	structuredRaw := d.structuredRaw()
 	structured := []byte(structuredRaw)
 	err := json.Unmarshal(structured, &v)
@@ -409,7 +409,7 @@ func BenchmarkJsonByteToFlatObjectUnmarshal(b *testing.B) {
 	jsonByte := sampleData{}.structuredObject().Byte()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		v := map[string]interface{}{}
+		v := map[string]any{}
 		NewJSON(jsonByte).ToFlat().Unmarshal(&v)
 	}
 }
@@ -434,7 +434,7 @@ func BenchmarkJsonStringToFlatObjectUnmarshal(b *testing.B) {
 	jsonString := sampleData{}.structuredObject().String()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		v := map[string]interface{}{}
+		v := map[string]any{}
 		NewJSON(jsonString).ToFlat().Unmarshal(&v)
 	}
 }
@@ -459,7 +459,7 @@ func BenchmarkJsonAnyToFlatObjectUnmarshal(b *testing.B) {
 	jsonAny := sampleData{}.structuredObject().Any()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		v := map[string]interface{}{}
+		v := map[string]any{}
 		NewJSON(jsonAny).ToFlat().Unmarshal(&v)
 	}
 }
@@ -484,7 +484,7 @@ func BenchmarkJsonByteToStructuredObjectUnmarshal(b *testing.B) {
 	jsonByte := sampleData{}.flatObject().Byte()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		v := map[string]interface{}{}
+		v := map[string]any{}
 		NewJSON(jsonByte).ToStructured().Unmarshal(&v)
 	}
 }
@@ -509,7 +509,7 @@ func BenchmarkJsonStringToStructuredObjectUnmarshal(b *testing.B) {
 	jsonString := sampleData{}.flatObject().String()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		v := map[string]interface{}{}
+		v := map[string]any{}
 		NewJSON(jsonString).ToStructured().Unmarshal(&v)
 	}
 }
@@ -534,7 +534,7 @@ func BenchmarkJsonAnyToStructuredObjectUnmarshal(b *testing.B) {
 	jsonAny := sampleData{}.flatObject().Any()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		v := map[string]interface{}{}
+		v := map[string]any{}
 		NewJSON(jsonAny).ToStructured().Unmarshal(&v)
 	}
 }
@@ -559,7 +559,7 @@ func BenchmarkJsonByteToFlatArrayUnmarshal(b *testing.B) {
 	jsonByte := sampleData{}.structuredArray().Byte()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		v := []map[string]interface{}{}
+		v := []map[string]any{}
 		NewJSON(jsonByte).ToFlat().Unmarshal(&v)
 	}
 }
@@ -584,7 +584,7 @@ func BenchmarkJsonStringToFlatArrayUnmarshal(b *testing.B) {
 	jsonString := sampleData{}.structuredArray().String()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		v := []map[string]interface{}{}
+		v := []map[string]any{}
 		NewJSON(jsonString).ToFlat().Unmarshal(&v)
 	}
 }
@@ -609,7 +609,7 @@ func BenchmarkJsonAnyToFlatArrayUnmarshal(b *testing.B) {
 	jsonAny := sampleData{}.structuredArray().Any()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		v := []map[string]interface{}{}
+		v := []map[string]any{}
 		NewJSON(jsonAny).ToFlat().Unmarshal(&v)
 	}
 }
@@ -634,7 +634,7 @@ func BenchmarkJsonByteToStructuredArrayUnmarshal(b *testing.B) {
 	jsonByte := sampleData{}.flatArray().Byte()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		v := []map[string]interface{}{}
+		v := []map[string]any{}
 		NewJSON(jsonByte).ToStructured().Unmarshal(&v)
 	}
 }
@@ -659,7 +659,7 @@ func BenchmarkJsonStringToStructuredArrayUnmarshal(b *testing.B) {
 	jsonString := sampleData{}.flatArray().String()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		v := []map[string]interface{}{}
+		v := []map[string]any{}
 		NewJSON(jsonString).ToStructured().Unmarshal(&v)
 	}
 }
@@ -684,7 +684,7 @@ func BenchmarkJsonAnyToStructuredArrayUnmarshal(b *testing.B) {
 	jsonAny := sampleData{}.flatArray().Any()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		v := []map[string]interface{}{}
+		v := []map[string]any{}
 		NewJSON(jsonAny).ToStructured().Unmarshal(&v)
 	}
 }

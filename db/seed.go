@@ -38,7 +38,7 @@ func RunSeed(tx *gorm.DB, connName string, seedTable SeedTableInterface) error {
 	valueField := Quote(tx, seedTable.ValueField())
 	seedKey := seedTable.SeedKey()
 
-	seedData := map[string]interface{}{}
+	seedData := map[string]any{}
 	tx.Table(tableName).
 		Where(keyField+" = ?", seedKey).
 		Select(valueField + " as " + Quote(tx, "value")).
