@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -504,7 +504,7 @@ func (n *NullDate) Scan(value any) error {
 		t, err := time.Parse("2006-01-02", string(v))
 		n.Time, n.Valid = t, err == nil
 	default:
-		return errors.New(fmt.Sprintf("failed to scan value: %v", v))
+		return NewError(http.StatusInternalServerError, fmt.Sprintf("failed to scan value: %v", v))
 	}
 
 	return nil
@@ -593,7 +593,7 @@ func (t *NullTime) Scan(value any) error {
 	case time.Time:
 		t.String, t.Valid = v.Format("15:04:05"), true
 	default:
-		return errors.New(fmt.Sprintf("failed to scan value: %v", v))
+		return NewError(http.StatusInternalServerError, fmt.Sprintf("failed to scan value: %v", v))
 	}
 
 	return nil

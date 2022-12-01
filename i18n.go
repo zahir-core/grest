@@ -7,39 +7,41 @@ import (
 // see: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Language
 const LangHeader = "Content-Language"
 
-var I18n = map[string]map[string]string{
-	"en-US": {
-		"bad_request":    "The request cannot be performed because of malformed or missing parameters.",
-		"forbidden":      "The user does not have permission to access the resource.",
-		"internal_error": "Failed to connect to the server, please try again later.",
-		"unauthorized":   "Invalid authentication token. Please Re-Login",
-	},
-	"id-ID": {
-		"bad_request":    "Permintaan tidak dapat dilakukan karena ada parameter yang salah atau tidak lengkap.",
-		"forbidden":      "Pengguna tidak memiliki izin untuk mengakses data.",
-		"internal_error": "Gagal terhubung ke server, silakan coba lagi nanti.",
-		"unauthorized":   "Token otentikasi tidak valid. Silahkan logout dan login ulang",
-	},
+type Translator struct {
+	i18n map[string]map[string]string
 }
 
-func AddTranslation(lang string, message map[string]string) {
-	if msg, ok := I18n[lang]; ok {
-		for k, v := range message {
+// AddTranslation add translation data based on language key
+func (t *Translator) AddTranslation(lang string, messages map[string]string) {
+	if t.i18n == nil {
+		t.i18n = map[string]map[string]string{}
+	}
+	if msg, ok := t.i18n[lang]; ok {
+		for k, v := range messages {
 			msg[k] = v
 		}
-		I18n[lang] = msg
+		t.i18n[lang] = msg
 	} else {
-		I18n[lang] = message
+		t.i18n[lang] = messages
 	}
 }
 
-func Trans(lang, key string, params ...map[string]string) string {
+// GetTranslation get translation data based on language key
+func (t *Translator) GetTranslation(lang string) map[string]string {
+	if msg, ok := t.i18n[lang]; ok {
+		return msg
+	}
+	return map[string]string{}
+}
+
+// Translate message data based on language and translation key
+func (t Translator) Trans(lang, key string, params ...map[string]string) string {
 	message := key
 	msg := map[string]string{}
-	if val, ok := I18n[lang]; ok {
+	if val, ok := t.i18n[lang]; ok {
 		msg = val
 	} else {
-		for k, v := range I18n {
+		for k, v := range t.i18n {
 			if strings.HasPrefix(k, lang) {
 				msg = v
 			}
