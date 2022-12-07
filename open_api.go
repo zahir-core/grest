@@ -4,6 +4,7 @@ type OpenAPISchema interface {
 	// todo
 }
 
+// The full Latest OpenAPI Specification is available on https://spec.openapis.org/oas/latest.html
 type OpenAPI struct {
 	OpenAPI           string             `json:"openapi,omitempty"`
 	Info              OpenAPIInfo        `json:"info,omitempty"`
