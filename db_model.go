@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type ModelSchema interface {
+type SchemaModel interface {
 	TableVersion() string
 	TableName() string
 	TableAliasName() string
@@ -22,7 +22,7 @@ type ModelSchema interface {
 	SetSorts()
 	AddSort(sort map[string]any)
 	GetSorts() []map[string]any
-	GetModelSchema() map[string]map[string]any
+	GetSchemaModel() map[string]any
 	ToSQL(tx *gorm.DB, q url.Values) string
 }
 
@@ -100,6 +100,12 @@ type Model struct {
 	// - direction : sql order direction (asc, desc)
 	// - is_required : if true, the sort will not be overridden by the client's own
 	Sorts []map[string]any `json:"-" gorm:"-"`
+
+	// used for open api doc generator :
+	// - status_code : http status code
+	// - header : http.Header
+	// - body : body response
+	OpenAPIResponses []map[string]any `json:"-" gorm:"-"`
 }
 
 // table version, used for migration flag, change the value every time there is a change in the table structure
@@ -199,7 +205,7 @@ func (m *Model) GetSorts() []map[string]any {
 	return m.Sorts
 }
 
-func (m *Model) GetModelSchema() map[string]any {
+func (m *Model) GetSchemaModel() map[string]any {
 	res := map[string]any{}
 	res["fields"] = m.GetFields()
 	res["array_fields"] = m.ArrayFields
