@@ -12,15 +12,15 @@ type OpenAPI struct {
 	Servers           []OpenAPIServer    `json:"servers,omitempty"`
 	Paths             map[string]any     `json:"paths,omitempty"`
 	Webhooks          map[string]any     `json:"webhooks,omitempty"`
-	Components        map[string]any     `json:"components,omitempty"` // let grest to generate it
-	Security          []OpenAPISecurity  `json:"-"`                    // to generate security and components.securitySchemes
-	RawSecurity       []any              `json:"security,omitempty"`   // let grest to generate it based on Security
+	Components        map[string]any     `json:"components,omitempty"`
+	Security          []OpenAPISecurity  `json:"-"`                  // to generate security and components.securitySchemes
+	RawSecurity       []any              `json:"security,omitempty"` // let grest to generate it based on Security
 	Tags              []OpenAPITag       `json:"tags,omitempty"`
 	ExternalDocs      OpenAPIExternalDoc `json:"externalDocs,omitempty"`
 }
 
 func (o *OpenAPI) SetVersion() {
-	o.OpenAPI = "3.0.0"
+	o.OpenAPI = "3.0.3"
 }
 
 func (o *OpenAPI) SetInfo() {
@@ -33,6 +33,8 @@ func (o *OpenAPI) SetInfo() {
 	o.Info.License.Name = ""
 	o.Info.License.Url = ""
 	o.Info.Version = ""
+	o.ExternalDocs.Url = ""
+	o.ExternalDocs.Description = ""
 }
 
 func (o *OpenAPI) SetJsonSchemaDialect() {
@@ -43,8 +45,59 @@ func (o *OpenAPI) SetServers() {
 	// o.AddServer("localhost", "description")
 }
 
-func (o *OpenAPI) AddServer(serverUrl, description string) {
-	o.Servers = append(o.Servers, OpenAPIServer{Url: serverUrl, Description: description})
+func (o *OpenAPI) AddServer(serverUrl, description string, variable ...map[string]any) {
+	s := OpenAPIServer{}
+	s.Url = serverUrl
+	s.Description = description
+	if len(variable) > 0 {
+		s.Variables = variable[0]
+	}
+	o.Servers = append(o.Servers, s)
+}
+
+func (o *OpenAPI) SetTags() {
+	// o.AddTag("name", "description")
+}
+
+func (o *OpenAPI) AddTag(name, description string) {
+	o.Tags = append(o.Tags, OpenAPITag{Name: name, Description: description})
+}
+
+func (o *OpenAPI) AddPath(key string, val any) {
+	if o.Paths != nil {
+		path, isPathExists := o.Paths[key]
+		p, pOk := path.(map[string]any)
+		v, vOk := val.(map[string]any)
+		if isPathExists && pOk && vOk {
+			for method, operation := range v {
+				_, isMethodExists := p[method]
+				if !isMethodExists {
+					p[method] = operation
+				}
+			}
+			o.Paths[key] = p
+		} else {
+			o.Paths[key] = val
+		}
+	} else {
+		o.Paths = map[string]any{key: val}
+	}
+}
+
+func (o *OpenAPI) AddWebhook(key string, val any) {
+	if o.Webhooks != nil {
+		o.Webhooks[key] = val
+	} else {
+		o.Webhooks = map[string]any{key: val}
+	}
+}
+
+func (o *OpenAPI) AddComponent(key string, val any) {
+	if o.Components != nil {
+		o.Components[key] = val
+	} else {
+		o.Components = map[string]any{key: val}
+	}
 }
 
 type OpenAPIInfo struct {
@@ -68,8 +121,9 @@ type OpenAPILicense struct {
 }
 
 type OpenAPIServer struct {
-	Url         string `json:"url,omitempty"`
-	Description string `json:"description,omitempty"`
+	Url         string         `json:"url,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Variables   map[string]any `json:"variables,omitempty"`
 }
 
 type OpenAPITag struct {
