@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type SchemaModel interface {
+type ModelInterface interface {
 	TableVersion() string
 	TableName() string
 	TableAliasName() string
@@ -69,6 +69,7 @@ type Model struct {
 	// - data_type
 	// opt_value, same as model struct tag value
 	Fields map[string]map[string]any `json:"-" gorm:"-"`
+
 	// automaticaly created from SetFields based on struct fields, used for array filter :
 	// ?array_fields.0.field.id={field_id} > where exists (select 1 from array_table at where at.parent_id = parent.id and field_id = {field_id})
 	// ?array_fields.*.field.id={field_id} > same as above but the array fields response also filtered
@@ -100,12 +101,6 @@ type Model struct {
 	// - direction : sql order direction (asc, desc)
 	// - is_required : if true, the sort will not be overridden by the client's own
 	Sorts []map[string]any `json:"-" gorm:"-"`
-
-	// used for open api doc generator :
-	// - status_code : http status code
-	// - header : http.Header
-	// - body : body response
-	OpenAPIResponses []map[string]any `json:"-" gorm:"-"`
 }
 
 // table version, used for migration flag, change the value every time there is a change in the table structure
