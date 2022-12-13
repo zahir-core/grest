@@ -8,46 +8,57 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
-
-	"grest.dev/grest/swagger"
 )
 
-// Error is an implementation of error.
+type ErrorInterface interface {
+	Error() string
+	StatusCode() int
+	Body() map[string]any
+	Trace() []map[string]any
+	TraceSimple() map[string]string
+}
+
+// Error is an implementation of error with trace & other detail.
 type Error struct {
-	Err struct {
-		Code    int    `json:"code"`
-		Message string `json:"message"`
-		Detail  any    `json:"detail,omitempty"`
-	} `json:"error"`
-	PCs []uintptr `json:"-"`
-}
-
-type Trace struct {
-	FunctionName string `json:"func"`
-	FileName     string `json:"file"`
-	LineNumber   int    `json:"line"`
-}
-
-func (e Error) Code() int {
-	return e.Err.Code
+	Code    int
+	Message string
+	Detail  any
+	PCs     []uintptr
 }
 
 func (e Error) Error() string {
-	return e.Err.Message
+	return e.Message
 }
 
-func (e Error) Trace() []Trace {
-	trace := []Trace{}
+func (e Error) StatusCode() int {
+	return e.Code
+}
+
+func (e Error) Body() map[string]any {
+	body := map[string]any{
+		"code":    e.Code,
+		"message": e.Message,
+	}
+	if e.Detail != nil {
+		body["detail"] = e.Detail
+	}
+	return map[string]any{
+		"error": body,
+	}
+}
+
+func (e Error) Trace() []map[string]any {
+	trace := []map[string]any{}
 	for _, pc := range e.PCs {
 		pc = pc - 1
 		fn := runtime.FuncForPC(pc)
 		if fn != nil {
 			funcName := fn.Name()
 			fileName, lineNo := fn.FileLine(pc)
-			trace = append(trace, Trace{
-				FunctionName: funcName,
-				FileName:     fileName,
-				LineNumber:   lineNo,
+			trace = append(trace, map[string]any{
+				"func": funcName,
+				"file": fileName,
+				"line": lineNo,
 			})
 		}
 	}
@@ -88,10 +99,10 @@ func (e Error) TraceSimple() map[string]string {
 // NewError returns an error that formats as the given text with statusCode and detail if needed.
 func NewError(statusCode int, message string, detail ...any) error {
 	err := Error{}
-	err.Err.Code = statusCode
-	err.Err.Message = message
+	err.Code = statusCode
+	err.Message = message
 	if len(detail) > 0 {
-		err.Err.Detail = detail[0]
+		err.Detail = detail[0]
 	}
 
 	var pcs [32]uintptr
@@ -99,30 +110,21 @@ func NewError(statusCode int, message string, detail ...any) error {
 	return err
 }
 
-// GetErrorResponse returns a Response with original Error
-func GetErrorResponse(err error) swagger.Response {
-	e, ok := err.(Error)
-	if !ok {
-		e.Err.Message = err.Error()
-	}
-	if e.Err.Code < 400 || e.Err.Code > 599 {
-		e.Err.Code = http.StatusInternalServerError
-	}
-	return swagger.Response{StatusCode: e.Err.Code, Body: e}
-}
-
 func NewErrorHandler() fiber.ErrorHandler {
 	return func(c *fiber.Ctx, err error) error {
-		res := GetErrorResponse(err)
-		return c.Status(res.StatusCode).JSON(res.Body)
+		e, ok := err.(ErrorInterface)
+		if !ok {
+			e = NewError(http.StatusInternalServerError, err.Error()).(ErrorInterface)
+		}
+		return c.Status(e.StatusCode()).JSON(e.Body())
 	}
 }
 
 func NewNotFoundHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		err := Error{}
-		err.Err.Code = http.StatusNotFound
-		err.Err.Message = "The resource you have specified cannot be found."
-		return c.Status(err.Err.Code).JSON(err)
+		err.Code = http.StatusNotFound
+		err.Message = "The resource you have specified cannot be found."
+		return c.Status(err.Code).JSON(err)
 	}
 }

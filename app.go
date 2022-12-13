@@ -6,8 +6,6 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
-
-	"grest.dev/grest/swagger"
 )
 
 const Version = "v0.0.0"
@@ -21,7 +19,7 @@ type App struct {
 	ErrorHandler          fiber.ErrorHandler
 	NotFoundHandler       fiber.Handler // to make sure it added at the very bottom of the stack (below all other functions) to handle a 404 response
 	Fiber                 *fiber.App
-	OpenAPI               func() swagger.OpenAPI
+	OpenAPI               OpenAPIInterface
 }
 
 func New(a ...App) *App {
@@ -50,7 +48,7 @@ func checkConfig(a ...App) App {
 }
 
 // use grest to add route so it can generate swagger api documentation automatically
-func (app *App) AddRoute(path, method string, handler fiber.Handler, model swagger.Component) {
+func (app *App) AddRoute(path, method string, handler fiber.Handler, model OpenAPIModelInterface) {
 	if method == "ALL" {
 		for _, m := range []string{"HEAD", "GET", "POST", "PUT", "PATCH", "DELETE", "CONNECT", "OPTIONS", "TRACE"} {
 			app.AddRoute(path, m, handler, model)
@@ -58,7 +56,7 @@ func (app *App) AddRoute(path, method string, handler fiber.Handler, model swagg
 	} else {
 		app.Fiber.Add(method, path, handler)
 		if len(os.Args) == 3 && os.Args[1] == "update" && os.Args[2] == "doc" {
-			swagger.AddComponent(path, method, model)
+			app.OpenAPI.AddRoute(path, method, model)
 		}
 	}
 }
@@ -77,7 +75,7 @@ func (app *App) AddMiddleware(handler fiber.Handler) {
 
 func (app *App) Start(addr string) error {
 	if len(os.Args) == 3 && os.Args[1] == "update" && os.Args[2] == "doc" {
-		swagger.Generate(app.OpenAPI)
+		app.OpenAPI.Generate()
 	}
 	app.Fiber.Use(app.NotFoundHandler)
 	if !app.DisableStartupMessage {

@@ -12,6 +12,7 @@ type OpenAPIInterface interface {
 	SetWebhook()
 	AddWebhook(key string, val any)
 	AddComponent(key string, val any)
+	AddRoute(path, method string, model OpenAPIModelInterface)
 	Generate()
 }
 
@@ -132,6 +133,10 @@ func (o *OpenAPI) AddComponent(key string, val any) {
 	} else {
 		o.Components = map[string]any{key: val}
 	}
+}
+
+func (o *OpenAPI) AddRoute(path, method string, model OpenAPIModelInterface) {
+	// todo
 }
 
 func (o *OpenAPI) Generate() {
