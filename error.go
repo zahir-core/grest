@@ -26,15 +26,15 @@ type Error struct {
 	PCs     []uintptr
 }
 
-func (e Error) Error() string {
+func (e *Error) Error() string {
 	return e.Message
 }
 
-func (e Error) StatusCode() int {
+func (e *Error) StatusCode() int {
 	return e.Code
 }
 
-func (e Error) Body() map[string]any {
+func (e *Error) Body() map[string]any {
 	body := map[string]any{
 		"code":    e.Code,
 		"message": e.Message,
@@ -47,7 +47,7 @@ func (e Error) Body() map[string]any {
 	}
 }
 
-func (e Error) Trace() []map[string]any {
+func (e *Error) Trace() []map[string]any {
 	trace := []map[string]any{}
 	for _, pc := range e.PCs {
 		pc = pc - 1
@@ -65,7 +65,7 @@ func (e Error) Trace() []map[string]any {
 	return trace
 }
 
-func (e Error) TraceSimple() map[string]string {
+func (e *Error) TraceSimple() map[string]string {
 	trace := map[string]string{}
 	for i, pc := range e.PCs {
 		pc = pc - 1
@@ -97,24 +97,25 @@ func (e Error) TraceSimple() map[string]string {
 }
 
 // NewError returns an error that formats as the given text with statusCode and detail if needed.
-func NewError(statusCode int, message string, detail ...any) error {
-	err := Error{}
-	err.Code = statusCode
-	err.Message = message
+func NewError(statusCode int, message string, detail ...any) *Error {
+	var pcs [32]uintptr
+	err := &Error{
+		Code:    statusCode,
+		Message: message,
+		PCs:     pcs[0:runtime.Callers(2, pcs[:])],
+	}
 	if len(detail) > 0 {
 		err.Detail = detail[0]
 	}
 
-	var pcs [32]uintptr
-	err.PCs = pcs[0:runtime.Callers(2, pcs[:])]
 	return err
 }
 
 func NewErrorHandler() fiber.ErrorHandler {
 	return func(c *fiber.Ctx, err error) error {
-		e, ok := err.(ErrorInterface)
+		e, ok := err.(*Error)
 		if !ok {
-			e = NewError(http.StatusInternalServerError, err.Error()).(ErrorInterface)
+			e = NewError(http.StatusInternalServerError, e.Error())
 		}
 		return c.Status(e.StatusCode()).JSON(e.Body())
 	}
@@ -122,9 +123,7 @@ func NewErrorHandler() fiber.ErrorHandler {
 
 func NewNotFoundHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		err := Error{}
-		err.Code = http.StatusNotFound
-		err.Message = "The resource you have specified cannot be found."
-		return c.Status(err.Code).JSON(err)
+		e := NewError(http.StatusNotFound, "The resource you have specified cannot be found.")
+		return c.Status(e.StatusCode()).JSON(e.Body())
 	}
 }

@@ -14,10 +14,12 @@ func TestError(t *testing.T) {
 	traceFile := "error_test.go"
 	traceLine := 17
 
-	err := NewError(statusCode, message)
-	e, ok := err.(ErrorInterface)
-	if !ok {
-		t.Errorf("err is not ErrorInterface")
+	e := NewError(statusCode, message)
+
+	var err error
+	err = e
+	if err.Error() != e.Error() {
+		t.Errorf("e is not an error")
 	}
 
 	if e.StatusCode() != statusCode {
