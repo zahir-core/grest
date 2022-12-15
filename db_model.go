@@ -22,7 +22,7 @@ type ModelInterface interface {
 	SetSorts()
 	AddSort(sort map[string]any)
 	GetSorts() []map[string]any
-	GetSchemaModel() map[string]any
+	GetQuerySchema() map[string]any
 	ToSQL(tx *gorm.DB, q url.Values) string
 }
 
@@ -200,7 +200,7 @@ func (m *Model) GetSorts() []map[string]any {
 	return m.Sorts
 }
 
-func (m *Model) GetSchemaModel() map[string]any {
+func (m *Model) GetQuerySchema() map[string]any {
 	res := map[string]any{}
 	res["fields"] = m.GetFields()
 	res["array_fields"] = m.ArrayFields
@@ -213,4 +213,13 @@ func (m *Model) GetSchemaModel() map[string]any {
 func (m *Model) ToSQL(tx *gorm.DB, q url.Values) string {
 	// todo
 	return ""
+}
+
+func (m *Model) OpenAPISchemaName() string {
+	return ""
+}
+
+func (m *Model) GetOpenAPISchema() map[string]any {
+	// todo
+	return map[string]any{}
 }

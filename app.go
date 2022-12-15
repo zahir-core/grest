@@ -48,15 +48,15 @@ func checkConfig(a ...App) App {
 }
 
 // use grest to add route so it can generate swagger api documentation automatically
-func (app *App) AddRoute(path, method string, handler fiber.Handler, model OpenAPIModelInterface) {
+func (app *App) AddRoute(path, method string, handler fiber.Handler, operation OpenAPIOperationInterface) {
 	if method == "ALL" {
 		for _, m := range []string{"HEAD", "GET", "POST", "PUT", "PATCH", "DELETE", "CONNECT", "OPTIONS", "TRACE"} {
-			app.AddRoute(path, m, handler, model)
+			app.AddRoute(path, m, handler, operation)
 		}
 	} else {
 		app.Fiber.Add(method, path, handler)
 		if len(os.Args) == 3 && os.Args[1] == "update" && os.Args[2] == "doc" {
-			app.OpenAPI.AddRoute(path, method, model)
+			app.OpenAPI.AddRoute(path, method, operation)
 		}
 	}
 }
