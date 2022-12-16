@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
+	"path/filepath"
 )
 
 type Telegram struct {
@@ -20,6 +21,23 @@ type Telegram struct {
 	Video       *multipart.FileHeader
 	Document    *multipart.FileHeader
 	ReplyMarkup any
+}
+
+func (t *Telegram) AddMessage(text string) {
+	t.Text = text
+}
+
+func (t *Telegram) AddAttachment(file *multipart.FileHeader) {
+	switch filepath.Ext(file.Filename) {
+	case "jpg", "jpeg", "png", "gif":
+		t.Photo = file
+	case "mp3":
+		t.Audio = file
+	case "mp4":
+		t.Video = file
+	default:
+		t.Document = file
+	}
 }
 
 func (t *Telegram) Send() error {
