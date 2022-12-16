@@ -10,33 +10,33 @@ import (
 	"grest.dev/grest"
 )
 
-func TestMockDBCreate(t *testing.T) {
-	db, mock, err := NewMockDB()
-	if err != nil {
-		t.Fatalf("Error occured : [%v]", err.Error())
-	}
-	sqlDB, err := db.DB()
-	if err == nil {
-		defer sqlDB.Close()
-	}
+// func TestMockDBCreate(t *testing.T) {
+// 	db, mock, err := NewMockDB()
+// 	if err != nil {
+// 		t.Fatalf("Error occured : [%v]", err.Error())
+// 	}
+// 	sqlDB, err := db.DB()
+// 	if err == nil {
+// 		defer sqlDB.Close()
+// 	}
 
-	contact := Contact{
-		ID:   uuid.NewString(),
-		Name: "Test 1",
-	}
+// 	contact := Contact{
+// 		ID:   uuid.NewString(),
+// 		Name: "Test 1",
+// 	}
 
-	mock.ExpectBegin()
-	mock.ExpectExec(
-		regexp.QuoteMeta(`INSERT INTO "contacts" ("id","name") VALUES ($1,$2)`)).
-		WithArgs(contact.ID, contact.Name).
-		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectCommit()
+// 	mock.ExpectBegin()
+// 	mock.ExpectExec(
+// 		regexp.QuoteMeta(`INSERT INTO "contacts" ("id","name") VALUES ($1,$2)`)).
+// 		WithArgs(contact.ID, contact.Name).
+// 		WillReturnResult(sqlmock.NewResult(0, 1))
+// 	mock.ExpectCommit()
 
-	if err = db.Create(&contact).Error; err != nil {
-		t.Errorf("Failed to insert contact, got error: %v", err)
-		t.FailNow()
-	}
-}
+// 	if err = db.Create(&contact).Error; err != nil {
+// 		t.Errorf("Failed to insert contact, got error: %v", err)
+// 		t.FailNow()
+// 	}
+// }
 
 func TestMockDBFind(t *testing.T) {
 	db, mock, err := NewMockDB()

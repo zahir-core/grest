@@ -2,12 +2,9 @@ package grest
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"runtime"
 	"strings"
-
-	"github.com/gofiber/fiber/v2"
 )
 
 type ErrorInterface interface {
@@ -109,21 +106,4 @@ func NewError(statusCode int, message string, detail ...any) *Error {
 	}
 
 	return err
-}
-
-func NewErrorHandler() fiber.ErrorHandler {
-	return func(c *fiber.Ctx, err error) error {
-		e, ok := err.(*Error)
-		if !ok {
-			e = NewError(http.StatusInternalServerError, e.Error())
-		}
-		return c.Status(e.StatusCode()).JSON(e.Body())
-	}
-}
-
-func NewNotFoundHandler() fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		e := NewError(http.StatusNotFound, "The resource you have specified cannot be found.")
-		return c.Status(e.StatusCode()).JSON(e.Body())
-	}
 }

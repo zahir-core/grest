@@ -24,6 +24,7 @@ type ModelInterface interface {
 	GetSorts() []map[string]any
 	GetQuerySchema() map[string]any
 	ToSQL(tx *gorm.DB, q url.Values) string
+	IsFlatJSON() bool
 }
 
 // model struct tag :
@@ -213,6 +214,10 @@ func (m *Model) GetQuerySchema() map[string]any {
 func (m *Model) ToSQL(tx *gorm.DB, q url.Values) string {
 	// todo
 	return ""
+}
+
+func (m *Model) IsFlatJSON() bool {
+	return false
 }
 
 func (m *Model) OpenAPISchemaName() string {

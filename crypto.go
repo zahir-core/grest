@@ -25,8 +25,8 @@ type Crypto struct {
 	Info string
 }
 
-func NewCrypto(keys ...string) Crypto {
-	c := Crypto{
+func NewCrypto(keys ...string) *Crypto {
+	c := &Crypto{
 		Key:  CryptoKey,
 		Salt: CryptoSalt,
 		Info: CryptoInfo,
@@ -43,7 +43,7 @@ func NewCrypto(keys ...string) Crypto {
 	return c
 }
 
-func (c Crypto) Encrypt(text string) (string, error) {
+func (c *Crypto) Encrypt(text string) (string, error) {
 	key, err := c.GenerateKey()
 	if err != nil {
 		return "", NewError(http.StatusInternalServerError, err.Error())
@@ -80,7 +80,7 @@ func (c Crypto) Encrypt(text string) (string, error) {
 	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
-func (c Crypto) Decrypt(text string) (string, error) {
+func (c *Crypto) Decrypt(text string) (string, error) {
 	ciphertext, err := base64.StdEncoding.DecodeString(text)
 	if err != nil {
 		return "", NewError(http.StatusInternalServerError, err.Error())
@@ -112,7 +112,7 @@ func (c Crypto) Decrypt(text string) (string, error) {
 	return string(plaintext), err
 }
 
-func (c Crypto) GenerateKey() ([]byte, error) {
+func (c *Crypto) GenerateKey() ([]byte, error) {
 	if len(c.Key) == 0 {
 		return nil, NewError(http.StatusInternalServerError, "key cannot be empty")
 	}
@@ -130,13 +130,13 @@ func (c Crypto) GenerateKey() ([]byte, error) {
 	return key, nil
 }
 
-func (Crypto) PKCS5Padding(ciphertext []byte, blockSize int) []byte {
+func (*Crypto) PKCS5Padding(ciphertext []byte, blockSize int) []byte {
 	padding := blockSize - len(ciphertext)%blockSize
 	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
 	return append(ciphertext, padtext...)
 }
 
-func (Crypto) PKCS5Unpadding(encrypt []byte) ([]byte, error) {
+func (*Crypto) PKCS5Unpadding(encrypt []byte) ([]byte, error) {
 	padding := encrypt[len(encrypt)-1]
 	length := len(encrypt) - int(padding)
 	if length > 0 {

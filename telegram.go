@@ -22,7 +22,7 @@ type Telegram struct {
 	ReplyMarkup any
 }
 
-func (t Telegram) Send() error {
+func (t *Telegram) Send() error {
 	if t.BaseURL == "" {
 		t.BaseURL = "https://api.telegram.org"
 	}

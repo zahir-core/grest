@@ -8,18 +8,18 @@ import (
 
 	"github.com/go-playground/locales"
 	ut "github.com/go-playground/universal-translator"
-	goValidator "github.com/go-playground/validator/v10"
+	"github.com/go-playground/validator/v10"
 )
 
 type Validator struct {
-	*goValidator.Validate
+	*validator.Validate
 	I18n map[string]ut.Translator
 }
 
-func NewValidator() Validator {
-	validator := Validator{Validate: goValidator.New()}
-	validator.RegisterTagNameFunc(validator.ValidateTagNamer)
-	validator.RegisterCustomTypeFunc(validator.ValidateValuer,
+func (v *Validator) New() {
+	v.Validate = validator.New()
+	v.RegisterTagNameFunc(v.ValidateTagNamer)
+	v.RegisterCustomTypeFunc(v.ValidateValuer,
 		NullBool{},
 		NullInt64{},
 		NullFloat64{},
@@ -31,10 +31,9 @@ func NewValidator() Validator {
 		NullJSON{},
 		NullUUID{},
 	)
-	return validator
 }
 
-func (Validator) ValidateTagNamer(fld reflect.StructField) string {
+func (*Validator) ValidateTagNamer(fld reflect.StructField) string {
 	name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
 	if name == "-" {
 		return ""
@@ -42,7 +41,7 @@ func (Validator) ValidateTagNamer(fld reflect.StructField) string {
 	return name
 }
 
-func (Validator) ValidateValuer(field reflect.Value) any {
+func (*Validator) ValidateValuer(field reflect.Value) any {
 	if valuer, ok := field.Interface().(driver.Valuer); ok {
 		val, err := valuer.Value()
 		if err == nil {
@@ -52,38 +51,38 @@ func (Validator) ValidateValuer(field reflect.Value) any {
 	return nil
 }
 
-func (validator *Validator) RegisterTranslator(lang string, lt locales.Translator, regFunc func(v *goValidator.Validate, trans ut.Translator) error) error {
+func (v *Validator) RegisterTranslator(lang string, lt locales.Translator, regFunc func(v *validator.Validate, trans ut.Translator) error) error {
 	trans, _ := ut.New(lt, lt).GetTranslator(lang)
-	err := regFunc(validator.Validate, trans)
+	err := regFunc(v.Validate, trans)
 	if err != nil {
 		return err
 	}
-	if validator.I18n == nil {
-		validator.I18n = map[string]ut.Translator{lang: trans}
+	if v.I18n == nil {
+		v.I18n = map[string]ut.Translator{lang: trans}
 	} else {
-		validator.I18n[lang] = trans
+		v.I18n[lang] = trans
 	}
 	return nil
 }
 
-func (validator *Validator) IsValid(v any, tag string) bool {
-	err := validator.Var(v, tag)
+func (v *Validator) IsValid(val any, tag string) bool {
+	err := v.Var(val, tag)
 	if err != nil {
 		return false
 	}
 	return true
 }
 
-func (validator *Validator) ValidateStruct(v any, lang string) error {
-	trans, ok := validator.I18n[lang]
+func (v *Validator) ValidateStruct(val any, lang string) error {
+	trans, ok := v.I18n[lang]
 	if !ok {
-		trans, _ = validator.I18n["en"]
+		trans, _ = v.I18n["en"]
 	}
-	err := validator.Struct(v)
+	err := v.Struct(val)
 	if err != nil {
 		message := ""
 		detail := map[string]any{}
-		errs := err.(goValidator.ValidationErrors)
+		errs := err.(validator.ValidationErrors)
 		for _, e := range errs {
 			msg := e.Translate(trans)
 			if message == "" {
