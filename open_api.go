@@ -2,14 +2,16 @@ package grest
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
+	"strings"
 )
+
+var FilePath = "docs/swagger.json"
 
 // The full Latest OpenAPI Specification is available on https://spec.openapis.org/oas/latest.html
 type OpenAPI struct {
-	FilePath          string             `json:"-"`
-	OpenAPIPath       string             `json:"-"`
 	OpenAPI           string             `json:"openapi,omitempty"`
 	Info              OpenAPIInfo        `json:"info,omitempty"`
 	JsonSchemaDialect string             `json:"jsonSchemaDialect,omitempty"`
@@ -37,7 +39,19 @@ func (o *OpenAPI) AddServer(server map[string]any) {
 
 // the full latest specs is available on https://spec.openapis.org/oas/latest.html#tag-object
 func (o *OpenAPI) AddTag(tag map[string]any) {
-	o.Tags = append(o.Tags, tag)
+	tagName, ok := tag["name"].(string)
+	if ok {
+		isTagNameExists := false
+		for _, tg := range o.Tags {
+			existingTagName, _ := tg["name"].(string)
+			if tagName == existingTagName {
+				isTagNameExists = true
+			}
+		}
+		if !isTagNameExists {
+			o.Tags = append(o.Tags, tag)
+		}
+	}
 }
 
 func (o *OpenAPI) AddPath(key string, val any) {
@@ -86,17 +100,20 @@ func (o *OpenAPI) AddComponent(key string, val any) {
 		} else {
 			o.Components[key] = val
 		}
-
-		o.Components[key] = val
 	} else {
 		o.Components = map[string]any{key: val}
 	}
 }
 
 func (o *OpenAPI) AddRoute(path, method string, op OpenAPIOperationInterface) {
+	fmt.Println("OpenAPI : add paths", path, method)
 	operationObject := map[string]any{}
 	if len(op.OpenAPITags()) > 0 {
-		operationObject["tags"] = op.OpenAPITags()
+		tags := op.OpenAPITags()
+		for _, tagName := range tags {
+			o.AddTag(map[string]any{"name": tagName})
+		}
+		operationObject["tags"] = tags
 	}
 	if op.OpenAPISummary() != "" {
 		operationObject["summary"] = op.OpenAPISummary()
@@ -137,6 +154,8 @@ func (o *OpenAPI) AddRoute(path, method string, op OpenAPIOperationInterface) {
 				o.AddComponent("schemas", map[string]any{
 					model.OpenAPISchemaName(): model.GetOpenAPISchema(),
 				})
+			} else {
+				delete(requestBody, k)
 			}
 		}
 		operationObject["requestBody"] = requestBody
@@ -162,6 +181,8 @@ func (o *OpenAPI) AddRoute(path, method string, op OpenAPIOperationInterface) {
 								o.AddComponent("schemas", map[string]any{
 									model.OpenAPISchemaName(): model.GetOpenAPISchema(),
 								})
+							} else {
+								delete(responses[code], key)
 							}
 						}
 					}
@@ -183,17 +204,15 @@ func (o *OpenAPI) AddRoute(path, method string, op OpenAPIOperationInterface) {
 	if len(op.OpenAPIServer()) > 0 {
 		operationObject["servers"] = op.OpenAPIServer()
 	}
-	o.AddPath(path, map[string]any{method: operationObject})
+	o.AddPath(path, map[string]any{strings.ToLower(method): operationObject})
 }
 
 func (o *OpenAPI) Generate() error {
-	o.SetVersion()
-	o.Configure()
 	b, err := json.MarshalIndent(o, "", "  ")
 	if err != nil {
 		return NewError(http.StatusInternalServerError, err.Error())
 	}
-	err = os.WriteFile(o.FilePath, b, 0666)
+	err = os.WriteFile(FilePath, b, 0666)
 	if err != nil {
 		return NewError(http.StatusInternalServerError, err.Error())
 	}
@@ -201,28 +220,28 @@ func (o *OpenAPI) Generate() error {
 }
 
 type OpenAPIInfo struct {
-	Title          string         `json:"title,omitempty"`
+	Title          string         `json:"title"`
 	Description    string         `json:"description,omitempty"`
 	TermsOfService string         `json:"termsOfService,omitempty"`
-	Contact        OpenAPIContact `json:"contact,omitempty"`
-	License        OpenAPILicense `json:"license,omitempty"`
-	Version        string         `json:"version,omitempty"`
+	Contact        OpenAPIContact `json:"contact"`
+	License        OpenAPILicense `json:"license"`
+	Version        string         `json:"version"`
 }
 
 type OpenAPIContact struct {
-	Name  string `json:"name,omitempty"`
-	Url   string `json:"url,omitempty"`
+	Name  string `json:"name"`
 	Email string `json:"email,omitempty"`
+	Url   string `json:"url,omitempty"`
 }
 
 type OpenAPILicense struct {
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 	Url  string `json:"url,omitempty"`
 }
 
 type OpenAPIExternalDoc struct {
 	Description string `json:"description,omitempty"`
-	Url         string `json:"url,omitempty"`
+	Url         string `json:"url"`
 }
 
 // OpenAPIOperationInterface used to complete the operation object of specific endpoint to the open api document
