@@ -1,6 +1,7 @@
 package grest
 
 import (
+	"encoding/json"
 	"net/url"
 
 	"gorm.io/gorm"
@@ -102,6 +103,9 @@ type Model struct {
 	// - direction : sql order direction (asc, desc)
 	// - is_required : if true, the sort will not be overridden by the client's own
 	Sorts []map[string]any `json:"-" gorm:"-"`
+
+	// hold data from db
+	Data any `json:"-" gorm:"-"`
 }
 
 // table version, used for migration flag, change the value every time there is a change in the table structure
@@ -218,6 +222,22 @@ func (m *Model) ToSQL(tx *gorm.DB, q url.Values) string {
 
 func (m *Model) IsFlatJSON() bool {
 	return false
+}
+
+// bind json byte to struct
+func (m *Model) Bind(data []byte) error {
+	if m.IsFlatJSON() {
+		return json.Unmarshal(data, m)
+	}
+	return NewJSON(data).ToFlat().Unmarshal(m)
+}
+
+// get data after query to db
+func (m *Model) GetData() any {
+	if m.IsFlatJSON() {
+		return m.Data
+	}
+	return NewJSON(m.Data).ToStructuredRoot().Data
 }
 
 func (m *Model) OpenAPISchemaName() string {

@@ -206,3 +206,58 @@ func (j JSON) ToStructuredMap(m map[string]any, sep JSONSeparator) map[string]an
 	json.Unmarshal(jsonByte, &res)
 	return res
 }
+
+// convert flat to structured for root object only
+func (j JSON) ToStructuredRoot(separator ...JSONSeparator) JSON {
+	sep := JSONSeparator{Before: "."}
+	if len(separator) > 0 {
+		sep = separator[0]
+	}
+	mp, isMap := j.Data.(map[string]any)
+	if isMap {
+		return JSON{Data: j.ToStructuredRootMap(mp, sep)}
+	}
+
+	slc, isSlice := j.Data.([]any)
+	if isSlice {
+		var newSlice []any
+		for _, s := range slc {
+			var newVal any
+			sMap, isSMap := s.(map[string]any)
+			if isSMap {
+				newVal = JSON{Data: sMap}.ToStructuredRoot(separator...).Data
+			} else if s != nil {
+				newVal = s
+			}
+			newSlice = append(newSlice, newVal)
+		}
+		return JSON{Data: newSlice}
+	}
+
+	return JSON{Data: j.Data}
+}
+
+func (j JSON) ToStructuredRootMap(m map[string]any, sep JSONSeparator) map[string]any {
+	nested := map[string]any{}
+	for k, v := range m {
+		val := v
+		keys := strings.Split(k, sep.Before)
+		for i := len(keys) - 1; i >= 1; i-- {
+			val = map[string]any{keys[i]: val}
+		}
+		nested[keys[0]] = j.FillMap(nested, keys[0], val)
+	}
+	return nested
+}
+
+func (j JSON) FillMap(data map[string]any, key string, val any) any {
+	d, exist := data[key].(map[string]any)
+	if exist {
+		temp, _ := val.(map[string]any)
+		for k, v := range temp {
+			d[k] = j.FillMap(d, k, v)
+		}
+		return d
+	}
+	return val
+}

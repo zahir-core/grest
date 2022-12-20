@@ -497,6 +497,14 @@ func BenchmarkJsonStringToStructuredObject(b *testing.B) {
 	}
 }
 
+func BenchmarkJsonStringToStructuredObjectRoot(b *testing.B) {
+	jsonString := sampleData{}.flatObject().String()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		NewJSON(jsonString).ToStructuredRoot()
+	}
+}
+
 func BenchmarkJsonStringToStructuredObjectMarshal(b *testing.B) {
 	jsonString := sampleData{}.flatObject().String()
 	b.ReportAllocs()
