@@ -237,7 +237,7 @@ func (m *Model) GetData() any {
 	if m.IsFlatJSON() {
 		return m.Data
 	}
-	return NewJSON(m.Data).ToStructuredRoot().Data
+	return NewJSON(m.Data).ToStructured().Data
 }
 
 func (m *Model) OpenAPISchemaName() string {

@@ -23,7 +23,7 @@
   - [x] Model
   - [X] Validation
   - [x] Error Handling
-  - [ ] Logging
+  - [x] Logging
 - [x] Database
   - [x] Connecting to Database
   - [x] CRUD
@@ -75,8 +75,7 @@ GREST is REST APIs framework with a "batteries-included" philosophy, it means th
 - [Fiber](https://gofiber.io) — An Express-inspired web framework written in Go.
 - [GORM](https://gorm.io) — The fantastic ORM library for Golang.
 - [go-redis](https://redis.uptrace.dev) — Redis client for Golang.
-- [zap](https://github.com/uber-go/zap) — Blazing fast, structured, leveled logging in Go.
-- [SJSON](https://github.com/tidwall/sjson) — Go package that provides a very fast and simple way to set a value in a json document.
+- [zerolog](https://github.com/rs/zerolog) — Zero Allocation JSON Logger.
 - [Swagger UI](https://github.com/swagger-api/swagger-ui) — Visualize OpenAPI Specification definition in an interactive UI.
 - [Package validator](https://github.com/go-playground/validator) — Package validator implements value validations for structs and individual fields based on tags.
 - [MinIO Go Client SDK](https://github.com/minio/minio-go) — MinIO Go Client SDK for Amazon S3 Compatible Cloud Storage

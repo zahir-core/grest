@@ -4,10 +4,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"net/http"
-	"strconv"
 	"strings"
-
-	"github.com/tidwall/sjson"
 )
 
 type JSONSeparator struct {
@@ -16,8 +13,9 @@ type JSONSeparator struct {
 }
 
 type JSON struct {
-	Data    any
-	IsMerge bool
+	Data       any
+	IsMerge    bool
+	IsRootOnly bool
 }
 
 func NewJSON(data any, isKeepOriginalData ...bool) JSON {
@@ -174,78 +172,28 @@ func (j JSON) ToStructured(separator ...JSONSeparator) JSON {
 }
 
 func (j JSON) ToStructuredMap(m map[string]any, sep JSONSeparator) map[string]any {
-	jsonByte := []byte("{}")
-	for k, v := range m {
-		if sep.Before != "" {
-			k = strings.ReplaceAll(k, sep.Before, ".")
-		}
-		if sep.After != "" {
-			k = strings.ReplaceAll(k, sep.After, "")
-		}
-		slc, isSlice := v.([]any)
-		if isSlice {
-			if len(slc) > 0 {
-				for i, s := range slc {
-					iString := strconv.Itoa(i)
-					sliceMap, isSliceMap := s.(map[string]any)
-					if isSliceMap {
-						jsonByte, _ = sjson.SetBytes(jsonByte, k+"."+iString, j.ToStructuredMap(sliceMap, sep))
-					} else if s != nil {
-						jsonByte, _ = sjson.SetBytes(jsonByte, k+"."+iString, s)
-					}
-				}
-			} else {
-				jsonByte, _ = sjson.SetBytes(jsonByte, k, []any{})
-
-			}
-		} else if v != nil {
-			jsonByte, _ = sjson.SetBytes(jsonByte, k, v)
-		}
-	}
-	res := map[string]any{}
-	json.Unmarshal(jsonByte, &res)
-	return res
-}
-
-// convert flat to structured for root object only
-func (j JSON) ToStructuredRoot(separator ...JSONSeparator) JSON {
-	sep := JSONSeparator{Before: "."}
-	if len(separator) > 0 {
-		sep = separator[0]
-	}
-	mp, isMap := j.Data.(map[string]any)
-	if isMap {
-		return JSON{Data: j.ToStructuredRootMap(mp, sep)}
-	}
-
-	slc, isSlice := j.Data.([]any)
-	if isSlice {
-		var newSlice []any
-		for _, s := range slc {
-			var newVal any
-			sMap, isSMap := s.(map[string]any)
-			if isSMap {
-				newVal = JSON{Data: sMap}.ToStructuredRoot(separator...).Data
-			} else if s != nil {
-				newVal = s
-			}
-			newSlice = append(newSlice, newVal)
-		}
-		return JSON{Data: newSlice}
-	}
-
-	return JSON{Data: j.Data}
-}
-
-func (j JSON) ToStructuredRootMap(m map[string]any, sep JSONSeparator) map[string]any {
 	nested := map[string]any{}
 	for k, v := range m {
-		val := v
+		if !j.IsRootOnly {
+			vSlice, isVSlice := v.([]any)
+			if isVSlice {
+				vTemp := []map[string]any{}
+				for _, d := range vSlice {
+					dMap, isDataMap := d.(map[string]any)
+					if isDataMap {
+						vTemp = append(vTemp, j.ToStructuredMap(dMap, sep))
+					}
+				}
+				if len(vTemp) > 0 {
+					v = vTemp
+				}
+			}
+		}
 		keys := strings.Split(k, sep.Before)
 		for i := len(keys) - 1; i >= 1; i-- {
-			val = map[string]any{keys[i]: val}
+			v = map[string]any{keys[i]: v}
 		}
-		nested[keys[0]] = j.FillMap(nested, keys[0], val)
+		nested[keys[0]] = j.FillMap(nested, keys[0], v)
 	}
 	return nested
 }

@@ -252,6 +252,7 @@ func TestJsonStringToFlatObject(t *testing.T) {
 		t.Errorf("Expected:\n%v\nGot:\n%v", expected, result)
 	}
 }
+
 func TestJsonAnyToFlatObject(t *testing.T) {
 	expected := sampleData{}.flatObject().String()
 	result := ""
@@ -293,6 +294,7 @@ func TestJsonStringToFlatArray(t *testing.T) {
 		t.Errorf("Expected:\n%v\nGot:\n%v", expected, result)
 	}
 }
+
 func TestJsonAnyToFlatArray(t *testing.T) {
 	expected := sampleData{}.flatArray().String()
 	result := ""
@@ -334,6 +336,7 @@ func TestJsonStringToStructuredObject(t *testing.T) {
 		t.Errorf("Expected:\n%v\nGot:\n%v", expected, result)
 	}
 }
+
 func TestJsonAnyToStructuredObject(t *testing.T) {
 	expected := sampleData{}.structuredObject().String()
 	result := ""
@@ -375,6 +378,7 @@ func TestJsonStringToStructuredArray(t *testing.T) {
 		t.Errorf("Expected:\n%v\nGot:\n%v", expected, result)
 	}
 }
+
 func TestJsonAnyToStructuredArray(t *testing.T) {
 	expected := sampleData{}.structuredArray().String()
 	result := ""
@@ -494,14 +498,6 @@ func BenchmarkJsonStringToStructuredObject(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		NewJSON(jsonString).ToStructured()
-	}
-}
-
-func BenchmarkJsonStringToStructuredObjectRoot(b *testing.B) {
-	jsonString := sampleData{}.flatObject().String()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		NewJSON(jsonString).ToStructuredRoot()
 	}
 }
 
