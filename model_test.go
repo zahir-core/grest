@@ -28,7 +28,7 @@ type Article struct {
 	AuthorID    NullUUID     `json:"author.id"    db:"a.author_id"`
 	AuthorName  NullString   `json:"author.name"  db:"u.name"`
 	AuthorEmail NullString   `json:"author.email" db:"u.email"`
-	Categories  []Category   `json:"categories"   db:"ac.article_id=id"`
+	Categories  []Category   `json:"categories"   db:"article.id={id}&is_active=true"` // {id} will be replaced to parent id, parsed using String{}.GetVars
 	Detail      NullJSON     `json:"detail"       db:"a.detail"`
 	TotalReview NullFloat64  `json:"total_review" db:"coalesce(tr.total_review,0)"`
 	IsActive    NullBool     `json:"is_active"    db:"a.is_active"`
@@ -56,14 +56,14 @@ func (m *Article) GetFields() map[string]map[string]any {
 }
 
 func (m *Article) GetRelations() map[string]map[string]any {
-	m.AddRelation("left", "users", "u", []map[string]any{{"column_1": "u.id", "operator": "=", "column_2": "a.author_id"}})
+	m.AddRelation("left", "users", "u", []map[string]any{{"column1": "u.id", "operator": "=", "column2": "a.author_id"}})
 	totalReview := &TotalReview{}
-	m.AddRelation("left", totalReview.GetSchema(), "tr", []map[string]any{{"column_1": "tr.id", "operator": "=", "column_2": "a.id"}})
+	m.AddRelation("left", totalReview.GetSchema(), "tr", []map[string]any{{"column1": "tr.id", "operator": "=", "column2": "a.id"}})
 	return m.Relations
 }
 
 func (m *Article) GetFilters() []map[string]any {
-	m.AddFilter(map[string]any{"column_1": "a.deleted_at", "operator": "=", "value": nil})
+	m.AddFilter(map[string]any{"column1": "a.deleted_at", "operator": "=", "value": nil})
 	return m.Filters
 }
 
@@ -92,7 +92,7 @@ type Category struct {
 	CreatedAt   NullDateTime `json:"created.time" db:"c.created_at"`
 	UpdatedAt   NullDateTime `json:"updated.time" db:"c.updated_at"`
 	DeletedAt   NullDateTime `json:"deleted.time" db:"c.deleted_at"`
-	ArticleID   NullUUID     `json:"-"            db:"ac.article_id"`
+	ArticleID   NullUUID     `json:"article.id"   db:"ac.article_id,hide"`
 }
 
 func (Category) TableName() string {
@@ -113,13 +113,13 @@ func (m *Category) GetFields() map[string]map[string]any {
 }
 
 func (m *Category) GetRelations() map[string]map[string]any {
-	m.AddRelation("inner", "articles_categories", "ac", []map[string]any{{"column_1": "ac.category_id", "operator": "=", "column_2": "c.id"}})
-	m.AddRelation("left", "users", "u", []map[string]any{{"column_1": "u.id", "operator": "=", "column_2": "c.author_id"}})
+	m.AddRelation("inner", "articles_categories", "ac", []map[string]any{{"column1": "ac.category_id", "operator": "=", "column2": "c.id"}})
+	m.AddRelation("left", "users", "u", []map[string]any{{"column1": "u.id", "operator": "=", "column2": "c.author_id"}})
 	return m.Relations
 }
 
 func (m *Category) GetFilters() []map[string]any {
-	m.AddFilter(map[string]any{"column_1": "c.deleted_at", "operator": "=", "value": nil})
+	m.AddFilter(map[string]any{"column1": "c.deleted_at", "operator": "=", "value": nil})
 	return m.Filters
 }
 
@@ -169,185 +169,122 @@ func (m *TotalReview) GetOpenAPISchema() map[string]any {
 
 func expectedSchemaStr() string {
 	return `{
-  "array_fields": {
+  "arrayFields": {
     "categories": {
-      "filter": "ac.article_id=id",
+      "filter": "article.id={id}\u0026is_active=true",
       "schema": {
-        "array_fields": null,
+        "arrayFields": null,
         "fields": {
+          "article.id": {
+            "as": "article.id",
+            "db": "ac.article_id",
+            "isGroup": false,
+            "isHide": true,
+            "type": "NullUUID"
+          },
           "author.email": {
             "as": "author.email",
             "db": "u.email",
-            "default": "",
-            "example": "",
-            "gorm": "",
-            "is_array": false,
-            "is_group": false,
-            "is_hide": false,
-            "note": "",
-            "title": "",
-            "type": "NullString",
-            "validate": ""
+            "isGroup": false,
+            "isHide": false,
+            "type": "NullString"
           },
           "author.id": {
             "as": "author.id",
             "db": "c.author_id",
-            "default": "",
-            "example": "",
-            "gorm": "",
-            "is_array": false,
-            "is_group": false,
-            "is_hide": false,
-            "note": "",
-            "title": "",
-            "type": "NullUUID",
-            "validate": ""
+            "isGroup": false,
+            "isHide": false,
+            "type": "NullUUID"
           },
           "author.name": {
             "as": "author.name",
             "db": "u.name",
-            "default": "",
-            "example": "",
-            "gorm": "",
-            "is_array": false,
-            "is_group": false,
-            "is_hide": false,
-            "note": "",
-            "title": "",
-            "type": "NullString",
-            "validate": ""
+            "isGroup": false,
+            "isHide": false,
+            "type": "NullString"
           },
           "code": {
             "as": "code",
             "db": "c.code",
-            "default": "",
-            "example": "",
-            "gorm": "",
-            "is_array": false,
-            "is_group": false,
-            "is_hide": false,
-            "note": "",
-            "title": "",
-            "type": "NullString",
-            "validate": ""
+            "isGroup": false,
+            "isHide": false,
+            "type": "NullString"
           },
           "created.time": {
             "as": "created.time",
             "db": "c.created_at",
-            "default": "",
-            "example": "",
-            "gorm": "",
-            "is_array": false,
-            "is_group": false,
-            "is_hide": false,
-            "note": "",
-            "title": "",
-            "type": "NullDateTime",
-            "validate": ""
+            "isGroup": false,
+            "isHide": false,
+            "type": "NullDateTime"
           },
           "deleted.time": {
             "as": "deleted.time",
             "db": "c.deleted_at",
-            "default": "",
-            "example": "",
-            "gorm": "",
-            "is_array": false,
-            "is_group": false,
-            "is_hide": false,
-            "note": "",
-            "title": "",
-            "type": "NullDateTime",
-            "validate": ""
+            "isGroup": false,
+            "isHide": false,
+            "type": "NullDateTime"
           },
           "id": {
             "as": "id",
             "db": "c.id",
-            "default": "",
-            "example": "",
-            "gorm": "",
-            "is_array": false,
-            "is_group": false,
-            "is_hide": false,
-            "note": "",
-            "title": "",
-            "type": "NullUUID",
-            "validate": ""
+            "isGroup": false,
+            "isHide": false,
+            "type": "NullUUID"
           },
           "is_active": {
             "as": "is_active",
             "db": "c.is_active",
-            "default": "",
-            "example": "",
-            "gorm": "",
-            "is_array": false,
-            "is_group": false,
-            "is_hide": false,
-            "note": "",
-            "title": "",
-            "type": "NullBool",
-            "validate": ""
+            "isGroup": false,
+            "isHide": false,
+            "type": "NullBool"
           },
           "name": {
             "as": "name",
             "db": "c.name",
-            "default": "",
-            "example": "",
-            "gorm": "",
-            "is_array": false,
-            "is_group": false,
-            "is_hide": false,
-            "note": "",
-            "title": "",
-            "type": "NullString",
-            "validate": ""
+            "isGroup": false,
+            "isHide": false,
+            "type": "NullString"
           },
           "updated.time": {
             "as": "updated.time",
             "db": "c.updated_at",
-            "default": "",
-            "example": "",
-            "gorm": "",
-            "is_array": false,
-            "is_group": false,
-            "is_hide": false,
-            "note": "",
-            "title": "",
-            "type": "NullDateTime",
-            "validate": ""
+            "isGroup": false,
+            "isHide": false,
+            "type": "NullDateTime"
           }
         },
         "filters": [
           {
-            "column_1": "c.deleted_at",
+            "column1": "c.deleted_at",
             "operator": "=",
             "value": null
           }
         ],
         "groups": null,
-        "is_flat": false,
+        "isFlat": false,
         "relations": {
           "ac": {
             "conditions": [
               {
-                "column_1": "ac.category_id",
-                "column_2": "c.id",
+                "column1": "ac.category_id",
+                "column2": "c.id",
                 "operator": "="
               }
             ],
-            "table_alias_name": "ac",
-            "table_name": "articles_categories",
+            "tableAliasName": "ac",
+            "tableName": "articles_categories",
             "type": "inner"
           },
           "u": {
             "conditions": [
               {
-                "column_1": "u.id",
-                "column_2": "c.author_id",
+                "column1": "u.id",
+                "column2": "c.author_id",
                 "operator": "="
               }
             ],
-            "table_alias_name": "u",
-            "table_name": "users",
+            "tableAliasName": "u",
+            "tableName": "users",
             "type": "left"
           }
         },
@@ -364,296 +301,163 @@ func expectedSchemaStr() string {
     "author.email": {
       "as": "author.email",
       "db": "u.email",
-      "default": "",
-      "example": "",
-      "gorm": "",
-      "is_array": false,
-      "is_group": false,
-      "is_hide": false,
-      "note": "",
-      "title": "",
-      "type": "NullString",
-      "validate": ""
+      "isGroup": false,
+      "isHide": false,
+      "type": "NullString"
     },
     "author.id": {
       "as": "author.id",
       "db": "a.author_id",
-      "default": "",
-      "example": "",
-      "gorm": "",
-      "is_array": false,
-      "is_group": false,
-      "is_hide": false,
-      "note": "",
-      "title": "",
-      "type": "NullUUID",
-      "validate": ""
+      "isGroup": false,
+      "isHide": false,
+      "type": "NullUUID"
     },
     "author.name": {
       "as": "author.name",
       "db": "u.name",
-      "default": "",
-      "example": "",
-      "gorm": "",
-      "is_array": false,
-      "is_group": false,
-      "is_hide": false,
-      "note": "",
-      "title": "",
-      "type": "NullString",
-      "validate": ""
-    },
-    "categories": {
-      "as": "categories",
-      "db": "ac.article_id=id",
-      "default": "",
-      "example": "",
-      "gorm": "",
-      "is_array": true,
-      "is_group": false,
-      "is_hide": false,
-      "note": "",
-      "title": "",
-      "type": "",
-      "validate": ""
+      "isGroup": false,
+      "isHide": false,
+      "type": "NullString"
     },
     "content": {
       "as": "content",
       "db": "a.content",
-      "default": "",
-      "example": "",
-      "gorm": "",
-      "is_array": false,
-      "is_group": false,
-      "is_hide": false,
-      "note": "",
-      "title": "",
-      "type": "NullString",
-      "validate": ""
+      "isGroup": false,
+      "isHide": false,
+      "type": "NullString"
     },
     "created_at": {
       "as": "created_at",
       "db": "a.created_at",
-      "default": "",
-      "example": "",
-      "gorm": "",
-      "is_array": false,
-      "is_group": false,
-      "is_hide": false,
-      "note": "",
-      "title": "",
-      "type": "NullDateTime",
-      "validate": ""
+      "isGroup": false,
+      "isHide": false,
+      "type": "NullDateTime"
     },
     "deleted_at": {
       "as": "deleted_at",
       "db": "a.deleted_at",
-      "default": "",
-      "example": "",
-      "gorm": "",
-      "is_array": false,
-      "is_group": false,
-      "is_hide": false,
-      "note": "",
-      "title": "",
-      "type": "NullDateTime",
-      "validate": ""
+      "isGroup": false,
+      "isHide": false,
+      "type": "NullDateTime"
     },
     "detail": {
       "as": "detail",
       "db": "a.detail",
-      "default": "",
-      "example": "",
-      "gorm": "",
-      "is_array": false,
-      "is_group": false,
-      "is_hide": false,
-      "note": "",
-      "title": "",
-      "type": "NullJSON",
-      "validate": ""
+      "isGroup": false,
+      "isHide": false,
+      "type": "NullJSON"
     },
     "id": {
       "as": "id",
       "db": "a.id",
-      "default": "",
-      "example": "",
-      "gorm": "",
-      "is_array": false,
-      "is_group": false,
-      "is_hide": false,
-      "note": "",
-      "title": "",
-      "type": "NullUUID",
-      "validate": ""
+      "isGroup": false,
+      "isHide": false,
+      "type": "NullUUID"
     },
     "is_active": {
       "as": "is_active",
       "db": "a.is_active",
-      "default": "",
-      "example": "",
-      "gorm": "",
-      "is_array": false,
-      "is_group": false,
-      "is_hide": false,
-      "note": "",
-      "title": "",
-      "type": "NullBool",
-      "validate": ""
+      "isGroup": false,
+      "isHide": false,
+      "type": "NullBool"
     },
     "is_hidden": {
       "as": "is_hidden",
       "db": "a.is_hidden",
-      "default": "",
-      "example": "",
-      "gorm": "",
-      "is_array": false,
-      "is_group": false,
-      "is_hide": true,
-      "note": "",
-      "title": "",
-      "type": "NullBool",
-      "validate": ""
+      "isGroup": false,
+      "isHide": true,
+      "type": "NullBool"
     },
     "title": {
       "as": "title",
       "db": "a.title",
-      "default": "",
-      "example": "",
-      "gorm": "",
-      "is_array": false,
-      "is_group": false,
-      "is_hide": false,
-      "note": "",
-      "title": "",
-      "type": "NullString",
-      "validate": ""
+      "isGroup": false,
+      "isHide": false,
+      "type": "NullString"
     },
     "total_review": {
       "as": "total_review",
-      "db": "coalesce(tr.total_review",
-      "default": "",
-      "example": "",
-      "gorm": "",
-      "is_array": false,
-      "is_group": false,
-      "is_hide": false,
-      "note": "",
-      "title": "",
-      "type": "NullFloat64",
-      "validate": ""
+      "db": "coalesce(tr.total_review,0)",
+      "isGroup": false,
+      "isHide": false,
+      "type": "NullFloat64"
     },
     "updated_at": {
       "as": "updated_at",
       "db": "a.updated_at",
-      "default": "",
-      "example": "",
-      "gorm": "",
-      "is_array": false,
-      "is_group": false,
-      "is_hide": false,
-      "note": "",
-      "title": "",
-      "type": "NullDateTime",
-      "validate": ""
+      "isGroup": false,
+      "isHide": false,
+      "type": "NullDateTime"
     }
   },
   "filters": [
     {
-      "column_1": "a.deleted_at",
+      "column1": "a.deleted_at",
       "operator": "=",
       "value": null
     }
   ],
   "groups": null,
-  "is_flat": false,
+  "isFlat": false,
   "relations": {
     "tr": {
       "conditions": [
         {
-          "column_1": "tr.id",
-          "column_2": "a.id",
+          "column1": "tr.id",
+          "column2": "a.id",
           "operator": "="
         }
       ],
-      "table_alias_name": "tr",
-      "table_name": {
-        "array_fields": null,
+      "tableAliasName": "tr",
+      "tableName": {
+        "arrayFields": null,
         "fields": {
           "id": {
             "as": "id",
             "db": "r.article_id",
-            "default": "",
-            "example": "",
-            "gorm": "",
-            "is_array": false,
-            "is_group": true,
-            "is_hide": false,
-            "note": "",
-            "title": "",
-            "type": "NullUUID",
-            "validate": ""
+            "isGroup": true,
+            "isHide": false,
+            "type": "NullUUID"
           },
           "total_review": {
             "as": "total_review",
             "db": "count(r.article_id)",
-            "default": "",
-            "example": "",
-            "gorm": "",
-            "is_array": false,
-            "is_group": false,
-            "is_hide": false,
-            "note": "",
-            "title": "",
-            "type": "NullInt64",
-            "validate": ""
+            "isGroup": false,
+            "isHide": false,
+            "type": "NullInt64"
           }
         },
         "filters": null,
         "groups": {
           "id": "r.article_id"
         },
-        "is_flat": false,
+        "isFlat": false,
         "relations": null,
         "sorts": null
       },
-      "table_schema": {
-        "array_fields": null,
+      "tableSchema": {
+        "arrayFields": null,
         "fields": {
           "id": {
             "as": "id",
             "db": "r.article_id",
-            "default": "",
-            "example": "",
-            "gorm": "",
-            "is_array": false,
-            "is_group": true,
-            "is_hide": false,
-            "note": "",
-            "title": "",
-            "type": "NullUUID",
-            "validate": ""
+            "isGroup": true,
+            "isHide": false,
+            "type": "NullUUID"
           },
           "total_review": {
             "as": "total_review",
             "db": "count(r.article_id)",
-            "default": "",
-            "example": "",
-            "gorm": "",
-            "is_array": false,
-            "is_group": false,
-            "is_hide": false,
-            "note": "",
-            "title": "",
-            "type": "NullInt64",
-            "validate": ""
+            "isGroup": false,
+            "isHide": false,
+            "type": "NullInt64"
           }
         },
         "filters": null,
         "groups": {
           "id": "r.article_id"
         },
-        "is_flat": false,
+        "isFlat": false,
         "relations": null,
         "sorts": null
       },
@@ -662,13 +466,13 @@ func expectedSchemaStr() string {
     "u": {
       "conditions": [
         {
-          "column_1": "u.id",
-          "column_2": "a.author_id",
+          "column1": "u.id",
+          "column2": "a.author_id",
           "operator": "="
         }
       ],
-      "table_alias_name": "u",
-      "table_name": "users",
+      "tableAliasName": "u",
+      "tableName": "users",
       "type": "left"
     }
   },

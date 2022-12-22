@@ -154,3 +154,14 @@ func (s String) FirstAlphaNumericRuneIndex(sr []rune, start int) int {
 	}
 	return len(sr)
 }
+
+func (String) GetVars(str, before, after string) []string {
+	vars := []string{}
+	temp := strings.Split(str, before)
+	for _, v := range temp {
+		if strings.Contains(v, after) {
+			vars = append(vars, strings.Split(v, after)[0])
+		}
+	}
+	return vars
+}

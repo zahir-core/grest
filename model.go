@@ -11,19 +11,23 @@ type ModelInterface interface {
 	TableName() string
 	TableAliasName() string
 	SetFields(any)
-	GetArrayFields() map[string]map[string]any
-	GetGroups() map[string]string
-	AddField(field_key string, field_opt map[string]any)
+	AddField(fieldKey string, fieldOpt map[string]any)
 	GetFields() map[string]map[string]any
-	AddRelation(join_type string, table_name any, table_alias_name string, conditions []map[string]any) map[string]any
+	AddArrayField(fieldKey string, fieldOpt map[string]any)
+	GetArrayFields() map[string]map[string]any
+	AddGroup(fieldKey string, fieldName string)
+	GetGroups() map[string]string
+	AddRelation(joinType string, tableName any, tableAliasName string, conditions []map[string]any) map[string]any
 	GetRelations() map[string]map[string]any
 	AddFilter(filter map[string]any)
 	GetFilters() []map[string]any
 	AddSort(sort map[string]any)
 	GetSorts() []map[string]any
-	GetSchema() map[string]any
 	SetSchema(ModelInterface) map[string]any
+	GetSchema() map[string]any
+	OpenAPISchemaName() string
 	SetOpenAPISchema(ModelInterface) map[string]any
+	GetOpenAPISchema() map[string]any
 	IsFlat() bool
 }
 
@@ -64,46 +68,46 @@ type ModelInterface interface {
 // example :
 //   - used as "example" on OpenAPI Specification
 type Model struct {
-	// described in the following pattern : map[field_key]map[opt_key]opt_value
-	// field_key: the field shown on json
-	// opt_key, same as model struct tag + the following key :
-	// - data_type
-	// opt_value, same as model struct tag value
+	// described in the following pattern : map[fieldKey]map[optKey]optValue
+	// fieldKey: the field shown on json
+	// optKey, same as model struct tag + the following key :
+	// - dataType
+	// optValue, same as model struct tag value
 	Fields map[string]map[string]any `json:"-" gorm:"-"`
 
 	// hold sql group by field data
 	Groups map[string]string `json:"-" gorm:"-"`
 
 	// hold array fields schema and filter (based on relation) :
-	// ?array_fields.0.field.id={field_id} > where exists (select 1 from array_table at where at.parent_id = parent.id and field_id = {field_id})
-	// ?array_fields.*.field.id={field_id} > same as above but the array fields response also filtered
+	// ?arrayFields.0.field.id={field_id} > where exists (select 1 from array_table at where at.parent_id = parent.id and field_id = {field_id})
+	// ?arrayFields.*.field.id={field_id} > same as above but the array fields response also filtered
 	ArrayFields map[string]map[string]any `json:"-" gorm:"-"`
 
-	// described in the following pattern : map[field_key]map[opt_key]opt_value
-	// field_key: same as "table_alias_name" on "opt_key"
-	// opt_key :
+	// described in the following pattern : map[fieldKey]map[optKey]optValue
+	// fieldKey: same as "tableAliasName" on "optKey"
+	// optKey :
 	// - type : sql join type (inner, left, etc)
-	// - table_name :
-	// - table_alias_name
+	// - tableName :
+	// - tableAliasName
 	// - conditions : []map[string]any same as "Filters"
 	Relations map[string]map[string]any `json:"-" gorm:"-"`
 
-	// described in the following pattern : []map[opt_key]opt_value
-	// opt_key :
-	// - column_1 : column in the db to be filtered
-	// - column_1_json_key : dot notation paths of json field in column_1
+	// described in the following pattern : []map[optKey]optValue
+	// optKey :
+	// - column1 : column in the db to be filtered
+	// - column1jsonKey : dot notation paths of json field in column1
 	// - operator : sql operator (=, !=, >, >=, <, <=, like, not like, in, not in, etc)
-	// - column_2 : another column in the db (to compare values between columns in the db)
-	// - column_2_json_key : dot notation paths of json field in column_2
+	// - column2 : another column in the db (to compare values between columns in the db)
+	// - column2jsonKey : dot notation paths of json field in column2
 	// - value : desired value to be filtered
 	Filters []map[string]any `json:"-" gorm:"-"`
 
-	// described in the following pattern : []map[opt_key]opt_value
-	// opt_key :
+	// described in the following pattern : []map[optKey]optValue
+	// optKey :
 	// - column : column in the db to be filtered
-	// - json_key : dot notation paths of json field in column
+	// - jsonKey : dot notation paths of json field in column
 	// - direction : sql order direction (asc, desc)
-	// - is_required : if true, the sort will not be overridden by the client's own
+	// - isRequired : if true, the sort will not be overridden by the client's own
 	Sorts []map[string]any `json:"-" gorm:"-"`
 }
 
@@ -128,12 +132,17 @@ func (m *Model) SetFields(p any) {
 	t := ptr.Elem().Type()
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		jsonTag := strings.Split(field.Tag.Get("json"), ",")
-		if jsonTag[0] != "" && jsonTag[0] != "-" {
-			dbTag := strings.Split(field.Tag.Get("db"), ",")
-			isGroup := len(dbTag) > 1 && dbTag[1] == "group"
+		jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
+		if jsonTag != "" && jsonTag != "-" {
+			dbTag := field.Tag.Get("db")
+			dbTags := strings.Split(dbTag, ",")
+			isHide := len(dbTags) > 1 && dbTags[1] == "hide"
+			isGroup := len(dbTags) > 1 && dbTags[1] == "group"
 			if isGroup {
-				m.AddGroup(jsonTag[0], dbTag[0])
+				m.AddGroup(jsonTag, dbTags[0])
+			}
+			if isHide || isGroup {
+				dbTag = dbTags[0]
 			}
 			isArray := field.Type.Kind() == reflect.Slice
 			if isArray {
@@ -141,23 +150,36 @@ func (m *Model) SetFields(p any) {
 				if len(gqs) > 0 {
 					arraySchemaTemp := gqs[0].Interface()
 					arraySchema, _ := arraySchemaTemp.(map[string]any)
-					m.AddArrayField(jsonTag[0], map[string]any{"schema": arraySchema, "filter": dbTag[0]})
+					m.AddArrayField(jsonTag, map[string]any{"schema": arraySchema, "filter": dbTag})
 				}
+			} else {
+				fieldOpt := map[string]any{
+					"db":      dbTag,
+					"as":      jsonTag,
+					"type":    field.Type.Name(),
+					"isHide":  isHide,
+					"isGroup": isGroup,
+				}
+				if field.Tag.Get("gorm") != "" {
+					fieldOpt["gorm"] = field.Tag.Get("gorm")
+				}
+				if field.Tag.Get("validate") != "" {
+					fieldOpt["validate"] = field.Tag.Get("validate")
+				}
+				if field.Tag.Get("title") != "" {
+					fieldOpt["title"] = field.Tag.Get("title")
+				}
+				if field.Tag.Get("note") != "" {
+					fieldOpt["note"] = field.Tag.Get("note")
+				}
+				if field.Tag.Get("default") != "" {
+					fieldOpt["default"] = field.Tag.Get("default")
+				}
+				if field.Tag.Get("example") != "" {
+					fieldOpt["example"] = field.Tag.Get("example")
+				}
+				m.AddField(jsonTag, fieldOpt)
 			}
-			m.AddField(jsonTag[0], map[string]any{
-				"db":       dbTag[0],
-				"as":       jsonTag[0],
-				"gorm":     field.Tag.Get("gorm"),
-				"validate": field.Tag.Get("validate"),
-				"title":    field.Tag.Get("title"),
-				"note":     field.Tag.Get("note"),
-				"default":  field.Tag.Get("default"),
-				"example":  field.Tag.Get("example"),
-				"type":     field.Type.Name(),
-				"is_hide":  len(dbTag) > 1 && dbTag[1] == "hide",
-				"is_group": isGroup,
-				"is_array": isArray,
-			})
 		}
 	}
 }
@@ -175,38 +197,22 @@ func (m *Model) callMethod(ptr reflect.Value, methodName string, args []reflect.
 	return val
 }
 
-// add (or replace) field to model
-func (m *Model) AddField(field_key string, field_opt map[string]any) {
+// add field to model if not exists
+func (m *Model) AddField(fieldKey string, fieldOpt map[string]any) {
 	if m.Fields != nil {
-		m.Fields[field_key] = field_opt
+		if m.Fields[fieldKey] == nil {
+			m.Fields[fieldKey] = fieldOpt
+		}
 	} else {
-		m.Fields = map[string]map[string]any{field_key: field_opt}
+		m.Fields = map[string]map[string]any{fieldKey: fieldOpt}
 	}
 }
 
-// add (or replace) field to model
-func (m *Model) AddArrayField(field_key string, field_opt map[string]any) {
-	if m.ArrayFields != nil {
-		m.ArrayFields[field_key] = field_opt
-	} else {
-		m.ArrayFields = map[string]map[string]any{field_key: field_opt}
-	}
-}
-
-// add (or replace) field to model
-func (m *Model) AddGroup(field_key string, field_name string) {
-	if m.Groups != nil {
-		m.Groups[field_key] = field_name
-	} else {
-		m.Groups = map[string]string{field_key: field_name}
-	}
-}
-
-// get model field, by default it automatically setted by struct tag using SetFields, but you can add or override this. expected key :
+// get model field, use SetFields to automatically setted by struct tag using SetFields, but you can add or override this. expected key :
 //
 //	column : column to filter, based on field in the db (or raw query)
 //	as : column to filter, based on field in the db (or raw query)
-//	column_2 : another column to filter, based on field in the db (or raw query), used to compare 2 column
+//	column2 : another column to filter, based on field in the db (or raw query), used to compare 2 column
 //	operator : operator to compare, if not set the default is "="
 //	value : value to compare
 //
@@ -221,27 +227,57 @@ func (m *Model) GetFields() map[string]map[string]any {
 	return m.Fields
 }
 
+// add array field to model if not exists
+func (m *Model) AddArrayField(fieldKey string, fieldOpt map[string]any) {
+	if m.ArrayFields != nil {
+		if m.ArrayFields[fieldKey] == nil {
+			m.ArrayFields[fieldKey] = fieldOpt
+		}
+	} else {
+		m.ArrayFields = map[string]map[string]any{fieldKey: fieldOpt}
+	}
+}
+
+func (m *Model) GetArrayFields() map[string]map[string]any {
+	return m.ArrayFields
+}
+
+// add group to model if not exists
+func (m *Model) AddGroup(fieldKey string, fieldName string) {
+	if m.Groups != nil {
+		if m.Groups[fieldKey] == "" {
+			m.Groups[fieldKey] = fieldName
+		}
+	} else {
+		m.Groups = map[string]string{fieldKey: fieldName}
+	}
+}
+
+func (m *Model) GetGroups() map[string]string {
+	return m.Groups
+}
+
 // add relation to model
 //
-//	join_type : sql join type (inner, left, etc)
-//	table_name : column in the db (or raw subquery) to be joined or model schema (to auto generate sub query filtered based on client's filter)
-//	table_alias_name : table alias name on sql join, also used as relation key
+//	joinType : sql join type (inner, left, etc)
+//	tableName : column in the db (or raw subquery) to be joined or model schema (to auto generate sub query filtered based on client's filter)
+//	tableAliasName : table alias name on sql join, also used as relation key
 //	conditions : []map[string]any same as "Filters"
-func (m *Model) AddRelation(join_type string, table_name any, table_alias_name string, conditions []map[string]any) map[string]any {
+func (m *Model) AddRelation(joinType string, tableName any, tableAliasName string, conditions []map[string]any) map[string]any {
 	relation := map[string]any{
-		"table_name":       table_name,
-		"table_alias_name": table_alias_name,
-		"type":             join_type,
-		"conditions":       conditions,
+		"tableName":      tableName,
+		"tableAliasName": tableAliasName,
+		"type":           joinType,
+		"conditions":     conditions,
 	}
-	table_schema, is_schema := table_name.(map[string]any)
-	if is_schema {
-		relation["table_schema"] = table_schema
+	tableSchema, isSchema := tableName.(map[string]any)
+	if isSchema {
+		relation["tableSchema"] = tableSchema
 	}
 	if m.Relations != nil {
-		m.Relations[table_alias_name] = relation
+		m.Relations[tableAliasName] = relation
 	} else {
-		m.Relations = map[string]map[string]any{table_alias_name: relation}
+		m.Relations = map[string]map[string]any{tableAliasName: relation}
 	}
 	return relation
 }
@@ -249,14 +285,14 @@ func (m *Model) AddRelation(join_type string, table_name any, table_alias_name s
 // get model relation, expected key :
 //
 //	type : sql join type (inner, left, etc)
-//	table_name :
-//	table_alias_name
+//	tableName :
+//	tableAliasName
 //	conditions : []map[string]any same as "Filters"
 //
 // example :
 //
 //	func (m *Model) GetRelations() map[string]map[string]any {
-//		m.AddRelation("left", "product_categories", "pc", []map[string]any{{"column_1": "pc.id", "operator": "=", "column_2": "p.category_id"}})
+//		m.AddRelation("left", "product_categories", "pc", []map[string]any{{"column1": "pc.id", "operator": "=", "column2": "p.category_id"}})
 //		return m.Relations
 //	}
 func (m *Model) GetRelations() map[string]map[string]any {
@@ -270,17 +306,17 @@ func (m *Model) AddFilter(filter map[string]any) {
 
 // get model filter, expected key :
 //
-//	column_1 : column (or raw query) in the db to be filtered
-//	column_1_json_key : dot notation paths of json field in column_1
+//	column1 : column (or raw query) in the db to be filtered
+//	column1jsonKey : dot notation paths of json field in column1
 //	operator : sql operator (=, !=, >, >=, <, <=, like, not like, in, not in, etc)
-//	column_2 : another column (or raw query) in the db (to compare values between columns in the db)
-//	column_2_json_key : dot notation paths of json field in column_2
+//	column2 : another column (or raw query) in the db (to compare values between columns in the db)
+//	column2jsonKey : dot notation paths of json field in column2
 //	value : desired value to be filtered
 //
 // example :
 //
 //	func (m *Model) GetFilters() []map[string]any {
-//		m.AddFilter(map[string]any{"column_1": "p.deleted_at", "operator": "=", "value": nil})
+//		m.AddFilter(map[string]any{"column1": "p.deleted_at", "operator": "=", "value": nil})
 //		return m.Filters
 //	}
 func (m *Model) GetFilters() []map[string]any {
@@ -295,9 +331,9 @@ func (m *Model) AddSort(sort map[string]any) {
 // get model sort, expected key :
 //
 //	column : column in the db to be filtered
-//	json_key : dot notation paths of json field in column
+//	jsonKey : dot notation paths of json field in column
 //	direction : sql order direction (asc, desc)
-//	is_required : if true, the sort will not be overridden by the client's own
+//	isRequired : if true, the sort will not be overridden by the client's own
 //
 // example :
 //
@@ -309,23 +345,15 @@ func (m *Model) GetSorts() []map[string]any {
 	return m.Sorts
 }
 
-func (m *Model) GetArrayFields() map[string]map[string]any {
-	return m.ArrayFields
-}
-
-func (m *Model) GetGroups() map[string]string {
-	return m.Groups
-}
-
 func (m *Model) SetSchema(model ModelInterface) map[string]any {
 	return map[string]any{
-		"fields":       model.GetFields(),
-		"array_fields": model.GetArrayFields(),
-		"groups":       model.GetGroups(),
-		"relations":    model.GetRelations(),
-		"filters":      model.GetFilters(),
-		"sorts":        model.GetSorts(),
-		"is_flat":      model.IsFlat(),
+		"fields":      model.GetFields(),
+		"arrayFields": model.GetArrayFields(),
+		"groups":      model.GetGroups(),
+		"relations":   model.GetRelations(),
+		"filters":     model.GetFilters(),
+		"sorts":       model.GetSorts(),
+		"isFlat":      model.IsFlat(),
 	}
 }
 
@@ -333,9 +361,17 @@ func (m *Model) GetSchema() map[string]any {
 	return m.SetSchema(m)
 }
 
+func (m *Model) OpenAPISchemaName() string {
+	return ""
+}
+
 // todo
 func (m *Model) SetOpenAPISchema(model ModelInterface) map[string]any {
 	return map[string]any{}
+}
+
+func (m *Model) GetOpenAPISchema() map[string]any {
+	return m.SetOpenAPISchema(m)
 }
 
 func (m *Model) IsFlat() bool {
@@ -356,13 +392,4 @@ func (m *Model) GetData() any {
 		return m
 	}
 	return NewJSON(m).ToStructured().Data
-}
-
-func (m *Model) OpenAPISchemaName() string {
-	return ""
-}
-
-func (m *Model) OpenAPISchema(schema map[string]any) map[string]any {
-	// todo
-	return map[string]any{}
 }
