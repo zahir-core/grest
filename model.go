@@ -9,6 +9,7 @@ import (
 type ModelInterface interface {
 	TableVersion() string
 	TableName() string
+	TableSchema() map[string]any
 	TableAliasName() string
 	SetFields(any)
 	AddField(fieldKey string, fieldOpt map[string]any)
@@ -87,8 +88,9 @@ type Model struct {
 	// fieldKey: same as "tableAliasName" on "optKey"
 	// optKey :
 	// - type : sql join type (inner, left, etc)
-	// - tableName :
-	// - tableAliasName
+	// - tableName : table name to join
+	// - tableSchema : schema for dynamic "join sub query" based on client's query params
+	// - tableAliasName : table alias name
 	// - conditions : []map[string]any same as "Filters"
 	Relations map[string]map[string]any `json:"-" gorm:"-"`
 
@@ -119,6 +121,37 @@ func (m *Model) TableVersion() string {
 // table name
 func (m *Model) TableName() string {
 	return "products"
+}
+
+// you can set `TableSchema` if you need "from sub query" with dynamic query based on client's query params
+//
+// example "from sub query" :
+//
+//	SELECT
+//		"u"."id" "user.id",
+//		"u"."name" "user.name",
+//		"ur"."total_review" "total_review"
+//	FROM
+//	  (SELECT
+//	    "user_id" "user_id",
+//	    COUNT("user_id") "total_review"
+//	  FROM
+//	    "user_reviews"
+//	  WHERE
+//	    "rate" >= 4
+//	  GROUP BY
+//	    "user_id"
+//	  ) as "ur"
+//	  JOIN "users" "u" on "u"."id" = "ur"."user_id"
+//
+// for example :
+//
+//	func (m *Model) TableSchema() map[string]any {
+//		ur := &UserReviewTotal{}
+//		return ur.GetSchema()
+//	}
+func (m *Model) TableSchema() map[string]any {
+	return nil
 }
 
 // table alias name
@@ -347,13 +380,16 @@ func (m *Model) GetSorts() []map[string]any {
 
 func (m *Model) SetSchema(model ModelInterface) map[string]any {
 	return map[string]any{
-		"fields":      model.GetFields(),
-		"arrayFields": model.GetArrayFields(),
-		"groups":      model.GetGroups(),
-		"relations":   model.GetRelations(),
-		"filters":     model.GetFilters(),
-		"sorts":       model.GetSorts(),
-		"isFlat":      model.IsFlat(),
+		"tableName":      model.TableName(),
+		"tableSchema":    model.TableSchema(),
+		"tableAliasName": model.TableAliasName(),
+		"fields":         model.GetFields(),
+		"arrayFields":    model.GetArrayFields(),
+		"groups":         model.GetGroups(),
+		"relations":      model.GetRelations(),
+		"filters":        model.GetFilters(),
+		"sorts":          model.GetSorts(),
+		"isFlat":         model.IsFlat(),
 	}
 }
 

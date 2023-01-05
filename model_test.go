@@ -47,7 +47,7 @@ func (Article) TableName() string {
 }
 
 func (Article) TableAliasName() string {
-	return "u"
+	return "a"
 }
 
 func (m *Article) GetFields() map[string]map[string]any {

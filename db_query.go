@@ -1,6 +1,8 @@
 package grest
 
 import (
+	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -99,9 +101,185 @@ var (
 	QueryDbField = "$db_field"
 )
 
+func Find(db *gorm.DB, model ModelInterface, query url.Values) ([]map[string]any, error) {
+	q := &DBQuery{
+		DB:     db,
+		Model:  model,
+		Schema: model.GetSchema(),
+		Query:  query,
+	}
+	return q.Find(q.Schema)
+}
+
 type DBQuery struct {
-	DB    *gorm.DB
-	Query url.Values
+	DB     *gorm.DB
+	Model  ModelInterface
+	Schema map[string]any
+	Query  url.Values
+	Data   []map[string]any
+	Err    error
+}
+
+func (q *DBQuery) Prepare(schema map[string]any) (*gorm.DB, error) {
+	var err error
+	db := q.DB.Session(&gorm.Session{})
+	db = q.SetTable(db, schema)
+	db = q.SetJoin(db, schema)
+	fmt.Println("todo")
+	return db, err
+}
+
+func (q *DBQuery) Find(schema map[string]any) ([]map[string]any, error) {
+	rows := []map[string]any{}
+	db, err := q.Prepare(schema)
+	if err != nil {
+		return rows, NewError(http.StatusInternalServerError, err.Error())
+	}
+	err = db.Find(&rows).Error
+	if err != nil {
+		return rows, NewError(http.StatusInternalServerError, err.Error())
+	}
+	return rows, nil
+}
+
+func (q *DBQuery) ToSQL(schema map[string]any) string {
+	return q.DB.ToSQL(func(tx *gorm.DB) *gorm.DB {
+		db, _ := q.Prepare(schema)
+		rows := []map[string]any{}
+		return db.Find(&rows)
+	})
+}
+
+func (q *DBQuery) SetTable(db *gorm.DB, schema map[string]any) *gorm.DB {
+	tableName, _ := schema["tableName"].(string)
+	tableAliasName, _ := schema["tableAliasName"].(string)
+	if tableAliasName == "" {
+		tableAliasName = tableName
+	}
+
+	// dynamic from sub query based on client's query params
+	tableSchema, _ := schema["tableSchema"].(map[string]any)
+	if len(tableSchema) > 0 {
+		tableName = "(" + q.ToSQL(tableSchema) + ")"
+	}
+
+	// quote table name if not from sub query
+	if !strings.Contains(tableName, " ") {
+		tableName = q.Quote(tableName)
+	}
+
+	if tableName != "" {
+		fromSQL := strings.Builder{}
+		fromSQL.WriteString(tableName)
+		fromSQL.WriteString(" AS ")
+		fromSQL.WriteString(q.Quote(tableAliasName))
+		db = db.Table(fromSQL.String())
+	}
+
+	return db
+}
+
+func (q *DBQuery) SetJoin(db *gorm.DB, schema map[string]any) *gorm.DB {
+	relations, _ := schema["relations"].(map[string]map[string]any)
+	if len(relations) > 0 {
+		for key, rel := range relations {
+			joinType, _ := rel["type"].(string)
+			joinType = strings.ToUpper(joinType)
+			if !strings.HasSuffix(joinType, "JOIN") {
+				if joinType != "" {
+					joinType += " "
+				}
+				joinType += "JOIN "
+			}
+
+			tableName, _ := rel["tableName"].(string)
+			tableAliasName, _ := rel["tableAliasName"].(string)
+			if tableAliasName == "" {
+				tableAliasName = tableName
+			}
+
+			// dynamic from sub query based on client's query params
+			tableSchema, _ := rel["tableSchema"].(map[string]any)
+			if len(tableSchema) > 0 {
+				subQuery := q.ToSQL(tableSchema)
+				fmt.Println("---------------------------------")
+				fmt.Println(subQuery)
+				fmt.Println("---------------------------------")
+
+				if subQuery != "" {
+					tableName = "(" + subQuery + ")"
+				}
+			}
+
+			if tableName != "" {
+
+				// quote table name if not from sub query
+				if !strings.Contains(tableName, " ") {
+					tableName = q.Quote(tableName)
+				}
+
+				args := []any{}
+				joinConditions := []string{}
+				conditions, _ := rel["conditions"].([]any)
+				for _, condition := range conditions {
+					cond, _ := condition.(map[string]any)
+					if len(cond) > 0 {
+						joinCondition := strings.Builder{}
+
+						column1, _ := cond["column1"].(string)
+						column1jsonKey, _ := cond["column1jsonKey"].(string)
+						if column1jsonKey != "" {
+							column1 = q.QuoteJSON(column1, column1jsonKey)
+						}
+
+						if column1 != "" {
+							// quote table name if not from sub query
+							if !strings.Contains(column1, " ") {
+								column1 = q.Quote(column1)
+							}
+							joinCondition.WriteString(column1)
+						}
+
+						operator, _ := cond["operator"].(string)
+						if operator == "" {
+							operator = "="
+						}
+						joinCondition.WriteString(operator)
+
+						column2, _ := cond["column2"].(string)
+						column2jsonKey, _ := cond["column2jsonKey"].(string)
+						if column2jsonKey != "" {
+							column2 = q.QuoteJSON(column2, column2jsonKey)
+						}
+						if column2 != "" {
+							// quote table name if not from sub query
+							if !strings.Contains(column2, " ") {
+								column2 = q.Quote(column2)
+							}
+							joinCondition.WriteString(column2)
+						} else {
+							value, _ := cond["value"]
+							joinCondition.WriteString("?")
+							args = append(args, value)
+						}
+
+						joinConditions = append(joinConditions, joinCondition.String())
+					}
+				}
+
+				joinSQL := strings.Builder{}
+				joinSQL.WriteString(joinType)
+				joinSQL.WriteString(tableName)
+				joinSQL.WriteString(" AS ")
+				joinSQL.WriteString(q.Quote(key))
+				if len(joinConditions) > 0 {
+					joinSQL.WriteString(" ON " + strings.Join(joinConditions, " AND "))
+				}
+				db = db.Joins(joinSQL.String(), args...)
+			}
+		}
+	}
+	return db
 }
 
 func (q DBQuery) Quote(text string) string {
