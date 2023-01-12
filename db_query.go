@@ -256,7 +256,10 @@ func (q *DBQuery) toWhereSQL(cond map[string]any) (string, any) {
 
 	column1, _ := cond["column1"].(string)
 	column1jsonKey, _ := cond["column1jsonKey"].(string)
-	column1isDateTime, _ := cond["column1isDateTime"].(bool)
+	column1type, _ := cond["column1type"].(string)
+	column1type = strings.ToLower(column1type)
+	column1isBool := strings.Contains(column1type, "bool")
+	column1isDateTime := strings.Contains(column1type, "date") || strings.Contains(column1type, "time")
 	if column1jsonKey != "" {
 		column1 = q.QuoteJSON(column1, column1jsonKey)
 	}
@@ -294,7 +297,9 @@ func (q *DBQuery) toWhereSQL(cond map[string]any) (string, any) {
 
 	column2, _ := cond["column2"].(string)
 	column2jsonKey, _ := cond["column2jsonKey"].(string)
-	column2isDateTime, _ := cond["column2isDateTime"].(bool)
+	column2type, _ := cond["column2type"].(string)
+	column2type = strings.ToLower(column2type)
+	column2isDateTime := strings.Contains(column2type, "date") || strings.Contains(column2type, "time")
 	if column2jsonKey != "" {
 		column2 = q.QuoteJSON(column2, column2jsonKey)
 	}
@@ -318,8 +323,15 @@ func (q *DBQuery) toWhereSQL(cond map[string]any) (string, any) {
 	} else {
 		where.WriteString("?")
 		if argStr != "" {
-			if isCaseInsensitive {
+			if isCaseInsensitive || column1isBool {
 				argStr = strings.ToLower(argStr)
+			}
+			if column1isBool {
+				if argStr == "true" || argStr == "t" || argStr == "1" {
+					cond["value"] = "1"
+				} else {
+					cond["value"] = "0"
+				}
 			}
 			if isOperatorLIKE && !strings.Contains(argStr, "%") {
 				argStr = "%" + argStr + "%"
@@ -364,95 +376,77 @@ func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any) *gorm.DB {
 			}
 		}
 	}
-	// // filter from query except $search & $or
-	// t := ptr.Elem().Type()
-	// for i := 0; i < t.NumField(); i++ {
-	// 	field := t.Field(i)
-	// 	if field.Name != "Model" && field.Type.Kind() != reflect.Slice {
-	// 		jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
-	// 		dbTag := strings.Split(field.Tag.Get("db"), ",")[0]
-	// 		for key, sv := range query {
-	// 			key, _ := url.QueryUnescape(key)
-	// 			subkey := strings.Split(key, ".")
-	// 			lastSubkey := subkey[len(subkey)-1]
-	// 			operator := setOperator(lastSubkey)
-	// 			if operator == "" {
-	// 				operator = "="
-	// 			} else {
-	// 				key = strings.ReplaceAll(key, "."+lastSubkey, "")
-	// 			}
-	// 			isDbTag := false
-	// 			if subkey[0] == QueryDbField {
-	// 				isDbTag = true
-	// 				key = strings.ReplaceAll(key, QueryDbField+".", "")
-	// 			}
-	// 			if key == jsonTag || (isDbTag && key == dbTag) || (subkey[0] == jsonTag && field.Type.Name() == "NullJSON") {
-	// 				column := dbTag
-	// 				if field.Type.Name() == "NullJSON" {
-	// 					jsonKey := strings.Join(subkey[1:], ".")
-	// 					column = QuoteJSON(db, column, strings.ReplaceAll(jsonKey, "."+lastSubkey, ""))
-	// 				} else if !strings.Contains(column, " ") && !strings.Contains(column, "'") {
-	// 					column = db.Statement.Quote(column)
-	// 				}
-	// 				for _, val := range sv {
-	// 					colVal := strings.Split(val, QueryField+":")
-	// 					if len(colVal) > 1 {
-	// 						db = db.Where(column + " " + operator + " " + db.Statement.Quote(colVal[1]))
-	// 					} else if strings.ToUpper(val) != "NULL" {
-	// 						if field.Type.Name() == "NullBool" {
-	// 							if val == "true" {
-	// 								val = "1"
-	// 							} else if val == "false" {
-	// 								val = "0"
-	// 							}
-	// 						}
-	// 						if lastSubkey == QueryOptInsensitiveLike || lastSubkey == QueryOptInsensitiveNotLike {
-	// 							// check if field type is date/time and dialector is postgrest , then cast to char
-	// 							if !strings.Contains(field.Type.Name(), "Date") && !strings.Contains(field.Type.Name(), "Time") {
-	// 								column = "LOWER (" + column + ")"
-	// 							} else if db.Dialector.Name() == "postgres" {
-	// 								column = "CAST( " + column + " AS CHAR)"
-	// 							}
-	// 							val = strings.ToLower(val)
-	// 						}
-	// 						if lastSubkey == QueryOptIn || lastSubkey == QueryOptNotIn {
-	// 							db = db.Where(column+" "+operator+" "+"(?)", strings.Split(val, ","))
-	// 						} else {
-	// 							if strings.Contains(operator, "LIKE") && !strings.Contains(val, "%") {
-	// 								val = "%" + val + "%"
-	// 							}
-	// 							db = db.Where(column+" "+operator+" "+"?", val)
-	// 						}
-	// 					} else if operator == "=" {
-	// 						db = db.Where(column + " IS NULL")
-	// 					} else {
-	// 						db = db.Where(column + " IS NOT NULL")
-	// 					}
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-	// }
-	// // filter from query $search
-	// qs := strings.Split(query.Get(QuerySearch), "=")
-	// if len(qs) > 1 {
-	// 	valSearch := strings.Builder{}
-	// 	for i, s := range strings.Split(qs[0], ",") {
-	// 		if i == 0 {
-	// 			valSearch.WriteString(s + "." + QueryOptInsensitiveLike + "=" + qs[1])
-	// 		} else {
-	// 			valSearch.WriteString(QueryOrDelimiter + s + "." + QueryOptInsensitiveLike + "=" + qs[1])
-	// 		}
-	// 	}
-	// 	if valSearch.Len() > 0 {
-	// 		query.Add(QueryOr, valSearch.String())
-	// 	}
-	// }
+
+	// filter from query except $search & $or
+	fields, _ := schema["fields"].(map[string]map[string]any)
+	// arrayFields, _ := schema["arrayFields"].(map[string]map[string]any)
+	for key, val := range q.Query {
+		cond := map[string]any{}
+		key, _ := url.QueryUnescape(key)
+		subkey := strings.Split(key, ".")
+		lastSubkey := subkey[len(subkey)-1]
+
+		operator := q.toOptSQL(lastSubkey)
+		cond["operator"] = operator
+
+		if subkey[0] == QueryDbField {
+			cond["column1"] = strings.ReplaceAll(key, QueryDbField+".", "")
+		}
+		if operator != "" {
+			key = strings.ReplaceAll(key, "."+lastSubkey, "")
+		}
+		if fields[key] != nil {
+			cond["column1"], _ = fields[key]["db"].(string)
+			cond["column1type"], _ = fields[key]["type"].(string)
+		} else {
+			// todo
+		}
+
+		for _, v := range val {
+			colVal := strings.Split(v, QueryField+":")
+			if len(colVal) > 1 {
+				cond["column2"] = colVal[1]
+			} else {
+				vUnescape, err := url.QueryUnescape(v)
+				if err != nil {
+					cond["value"] = v
+				} else {
+					cond["value"] = vUnescape
+				}
+			}
+		}
+
+		if cond["column1"] != nil {
+			whereSQL, arg := q.toWhereSQL(cond)
+			if strings.Contains(whereSQL, "?") {
+				db = db.Where(whereSQL, arg)
+			} else {
+				db = db.Where(whereSQL)
+			}
+		}
+	}
+
+	// filter from query $search
+	qs := strings.Split(q.Query.Get(QuerySearch), "=")
+	if len(qs) > 1 {
+		valSearch := strings.Builder{}
+		for i, s := range strings.Split(qs[0], ",") {
+			if i == 0 {
+				valSearch.WriteString(s + "." + QueryOptInsensitiveLike + "=" + qs[1])
+			} else {
+				valSearch.WriteString(QueryOrDelimiter + s + "." + QueryOptInsensitiveLike + "=" + qs[1])
+			}
+		}
+		if valSearch.Len() > 0 {
+			q.Query.Add(QueryOr, valSearch.String())
+		}
+	}
+
 	// // filter from query $or
-	// for orKey, sv := range query {
+	// for orKey, sv := range q.Query {
 	// 	if orKey == QueryOr {
 	// 		for _, orQuery := range sv {
-	// 			orDB := baseDB.Session(&gorm.Session{DryRun: true})
+	// 			orDB := db.Session(&gorm.Session{DryRun: true})
 	// 			orQ := strings.Split(orQuery, QueryOrDelimiter)
 	// 			for _, orStr := range orQ {
 	// 				or := strings.Split(orStr, "=")
@@ -460,7 +454,7 @@ func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any) *gorm.DB {
 	// 					key, _ := url.QueryUnescape(or[0])
 	// 					subkey := strings.Split(key, ".")
 	// 					lastSubkey := subkey[len(subkey)-1]
-	// 					operator := setOperator(lastSubkey)
+	// 					operator := q.toOptSQL(lastSubkey)
 	// 					val, _ := url.QueryUnescape(or[1])
 	// 					if operator == "" {
 	// 						operator = "="
@@ -481,7 +475,7 @@ func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any) *gorm.DB {
 	// 								column := dbTag
 	// 								if field.Type.Name() == "NullJSON" {
 	// 									jsonKey := strings.Join(subkey[1:], ".")
-	// 									column = QuoteJSON(db, column, strings.ReplaceAll(jsonKey, "."+lastSubkey, ""))
+	// 									column = q.QuoteJSON(column, strings.ReplaceAll(jsonKey, "."+lastSubkey, ""))
 	// 								} else if !strings.Contains(column, " ") && !strings.Contains(column, "'") {
 	// 									column = db.Statement.Quote(column)
 	// 								}
