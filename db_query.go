@@ -252,7 +252,7 @@ func (q *DBQuery) toWhereSQL(cond map[string]any) (string, any) {
 	}
 	isOperatorIN := strings.Contains(strings.ToUpper(operator), "IN")
 	isOperatorLIKE := strings.Contains(strings.ToUpper(operator), "LIKE")
-	isCaseInsensitive, _ := cond["isSensitive"].(bool)
+	isCaseInsensitive, _ := cond["isCaseInsensitive"].(bool)
 
 	column1, _ := cond["column1"].(string)
 	column1jsonKey, _ := cond["column1jsonKey"].(string)
@@ -328,9 +328,9 @@ func (q *DBQuery) toWhereSQL(cond map[string]any) (string, any) {
 			}
 			if column1isBool {
 				if argStr == "true" || argStr == "t" || argStr == "1" {
-					cond["value"] = "1"
+					argStr = "1"
 				} else {
-					cond["value"] = "0"
+					argStr = "0"
 				}
 			}
 			if isOperatorLIKE && !strings.Contains(argStr, "%") {
@@ -362,6 +362,46 @@ func (q *DBQuery) toOptSQL(key string) string {
 	return res
 }
 
+func (q *DBQuery) keyValQueryToCond(key, val string, fields map[string]map[string]any, arrayFields map[string]map[string]any) map[string]any {
+	cond := map[string]any{}
+	key, _ = url.QueryUnescape(key)
+	subkey := strings.Split(key, ".")
+	lastSubkey := subkey[len(subkey)-1]
+
+	operator := q.toOptSQL(lastSubkey)
+	cond["operator"] = operator
+
+	if lastSubkey == QueryOptInsensitiveLike || lastSubkey == QueryOptInsensitiveNotLike {
+		cond["isCaseInsensitive"] = true
+	}
+
+	if subkey[0] == QueryDbField {
+		cond["column1"] = strings.ReplaceAll(key, QueryDbField+".", "")
+	}
+	if operator != "" {
+		key = strings.ReplaceAll(key, "."+lastSubkey, "")
+	}
+	if fields[key] != nil {
+		cond["column1"], _ = fields[key]["db"].(string)
+		cond["column1type"], _ = fields[key]["type"].(string)
+	} else {
+		// todo : arrayFields, json, etc
+	}
+
+	colVal := strings.Split(val, QueryField+":")
+	if len(colVal) > 1 {
+		cond["column2"] = colVal[1]
+	} else {
+		vUnescape, err := url.QueryUnescape(val)
+		if err != nil {
+			cond["value"] = val
+		} else {
+			cond["value"] = vUnescape
+		}
+	}
+	return cond
+}
+
 func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any) *gorm.DB {
 
 	// filter from schema
@@ -379,43 +419,9 @@ func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any) *gorm.DB {
 
 	// filter from query except $search & $or
 	fields, _ := schema["fields"].(map[string]map[string]any)
-	// arrayFields, _ := schema["arrayFields"].(map[string]map[string]any)
+	arrayFields, _ := schema["arrayFields"].(map[string]map[string]any)
 	for key, val := range q.Query {
-		cond := map[string]any{}
-		key, _ := url.QueryUnescape(key)
-		subkey := strings.Split(key, ".")
-		lastSubkey := subkey[len(subkey)-1]
-
-		operator := q.toOptSQL(lastSubkey)
-		cond["operator"] = operator
-
-		if subkey[0] == QueryDbField {
-			cond["column1"] = strings.ReplaceAll(key, QueryDbField+".", "")
-		}
-		if operator != "" {
-			key = strings.ReplaceAll(key, "."+lastSubkey, "")
-		}
-		if fields[key] != nil {
-			cond["column1"], _ = fields[key]["db"].(string)
-			cond["column1type"], _ = fields[key]["type"].(string)
-		} else {
-			// todo
-		}
-
-		for _, v := range val {
-			colVal := strings.Split(v, QueryField+":")
-			if len(colVal) > 1 {
-				cond["column2"] = colVal[1]
-			} else {
-				vUnescape, err := url.QueryUnescape(v)
-				if err != nil {
-					cond["value"] = v
-				} else {
-					cond["value"] = vUnescape
-				}
-			}
-		}
-
+		cond := q.keyValQueryToCond(key, val[0], fields, arrayFields)
 		if cond["column1"] != nil {
 			whereSQL, arg := q.toWhereSQL(cond)
 			if strings.Contains(whereSQL, "?") {
@@ -438,89 +444,47 @@ func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any) *gorm.DB {
 			}
 		}
 		if valSearch.Len() > 0 {
-			q.Query.Add(QueryOr, valSearch.String())
+			valSearchStr := valSearch.String()
+			orVal, isOrValExists := q.Query[QueryOr]
+			isSearchValExists := !isOrValExists
+			if !isSearchValExists {
+				for _, ov := range orVal {
+					if ov == valSearchStr {
+						isSearchValExists = true
+					}
+				}
+			}
+			if !isSearchValExists {
+				q.Query.Add(QueryOr, valSearch.String())
+			}
 		}
 	}
 
-	// // filter from query $or
-	// for orKey, sv := range q.Query {
-	// 	if orKey == QueryOr {
-	// 		for _, orQuery := range sv {
-	// 			orDB := db.Session(&gorm.Session{DryRun: true})
-	// 			orQ := strings.Split(orQuery, QueryOrDelimiter)
-	// 			for _, orStr := range orQ {
-	// 				or := strings.Split(orStr, "=")
-	// 				if len(or) > 1 {
-	// 					key, _ := url.QueryUnescape(or[0])
-	// 					subkey := strings.Split(key, ".")
-	// 					lastSubkey := subkey[len(subkey)-1]
-	// 					operator := q.toOptSQL(lastSubkey)
-	// 					val, _ := url.QueryUnescape(or[1])
-	// 					if operator == "" {
-	// 						operator = "="
-	// 					} else {
-	// 						key = strings.ReplaceAll(key, "."+lastSubkey, "")
-	// 					}
-	// 					isDbTag := false
-	// 					if subkey[0] == QueryDbField {
-	// 						isDbTag = true
-	// 						key = strings.ReplaceAll(key, QueryDbField+".", "")
-	// 					}
-	// 					for i := 0; i < t.NumField(); i++ {
-	// 						field := t.Field(i)
-	// 						if field.Name != "Model" && field.Type.Kind() != reflect.Slice {
-	// 							jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
-	// 							dbTag := strings.Split(field.Tag.Get("db"), ",")[0]
-	// 							if key == jsonTag || (isDbTag && key == dbTag) || (subkey[0] == jsonTag && field.Type.Name() == "NullJSON") {
-	// 								column := dbTag
-	// 								if field.Type.Name() == "NullJSON" {
-	// 									jsonKey := strings.Join(subkey[1:], ".")
-	// 									column = q.QuoteJSON(column, strings.ReplaceAll(jsonKey, "."+lastSubkey, ""))
-	// 								} else if !strings.Contains(column, " ") && !strings.Contains(column, "'") {
-	// 									column = db.Statement.Quote(column)
-	// 								}
-	// 								colVal := strings.Split(val, QueryField+":")
-	// 								if len(colVal) > 1 {
-	// 									orDB = orDB.Or(column + operator + db.Statement.Quote(colVal[1]))
-	// 								} else if strings.ToUpper(val) != "NULL" {
-	// 									if field.Type.Name() == "NullBool" {
-	// 										if val == "true" {
-	// 											val = "1"
-	// 										} else if val == "false" {
-	// 											val = "0"
-	// 										}
-	// 									}
-	// 									if lastSubkey == QueryOptInsensitiveLike || lastSubkey == QueryOptInsensitiveNotLike {
-	// 										// check if field type is date/time and dialector is postgrest , then cast to char
-	// 										if !strings.Contains(field.Type.Name(), "Date") && !strings.Contains(field.Type.Name(), "Time") {
-	// 											column = "LOWER (" + column + ")"
-	// 										} else if db.Dialector.Name() == "postgres" {
-	// 											column = "CAST( " + column + " AS CHAR)"
-	// 										}
-	// 										val = strings.ToLower(val)
-	// 									}
-	// 									if lastSubkey == QueryOptIn || lastSubkey == QueryOptNotIn {
-	// 										orDB = orDB.Or(column+operator+"(?)", strings.Split(val, ","))
-	// 									} else {
-	// 										if strings.Contains(operator, "LIKE") && !strings.Contains(val, "%") {
-	// 											val = "%" + val + "%"
-	// 										}
-	// 										orDB = orDB.Or(column+operator+"?", val)
-	// 									}
-	// 								} else if operator == "=" {
-	// 									orDB = orDB.Or(column + " IS NULL")
-	// 								} else {
-	// 									orDB = orDB.Or(column + " IS NOT NULL")
-	// 								}
-	// 							}
-	// 						}
-	// 					}
-	// 				}
-	// 			}
-	// 			db = db.Where(orDB)
-	// 		}
-	// 	}
-	// }
+	// filter from query $or
+	orVal, isOrValExists := q.Query[QueryOr]
+	if isOrValExists {
+		for _, ov := range orVal {
+			orDB := q.DB.Session(&gorm.Session{})
+			orQueries := strings.Split(ov, QueryOrDelimiter)
+			for _, orQuery := range orQueries {
+				orQ := strings.Split(orQuery, "=")
+				val := ""
+				if len(orQ) > 0 {
+					val = orQ[1]
+				}
+				cond := q.keyValQueryToCond(orQ[0], val, fields, arrayFields)
+				if cond["column1"] != nil {
+					whereSQL, arg := q.toWhereSQL(cond)
+					if strings.Contains(whereSQL, "?") {
+						orDB = orDB.Or(whereSQL, arg)
+					} else {
+						orDB = orDB.Or(whereSQL)
+					}
+				}
+			}
+			db = db.Where(orDB)
+		}
+	}
 	return db
 }
 
