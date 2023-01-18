@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"gorm.io/gorm"
@@ -128,6 +129,7 @@ func (q *DBQuery) Prepare(schema map[string]any, db *gorm.DB) (*gorm.DB, error) 
 	db = q.SetTable(db, schema)
 	db = q.SetJoin(db, schema)
 	db = q.SetWhere(db, schema)
+	db = q.SetGroup(db, schema)
 	fmt.Println("todo")
 	return db, err
 }
@@ -135,6 +137,9 @@ func (q *DBQuery) Prepare(schema map[string]any, db *gorm.DB) (*gorm.DB, error) 
 func (q *DBQuery) Find(schema map[string]any) ([]map[string]any, error) {
 	rows := []map[string]any{}
 	db, err := q.Prepare(schema, nil)
+	db = q.SetSelect(db, schema)
+	db = q.SetOrder(db, schema)
+	db = q.SetPagination(db)
 	if err != nil {
 		return rows, NewError(http.StatusInternalServerError, err.Error())
 	}
@@ -486,6 +491,119 @@ func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any) *gorm.DB {
 		}
 	}
 	return db
+}
+
+func (q *DBQuery) SetGroup(db *gorm.DB, schema map[string]any) *gorm.DB {
+	fields, _ := schema["fields"].(map[string]map[string]any)
+	groups, _ := schema["groups"].(map[string]string)
+	queryGroups := strings.Split(q.Query.Get(QueryGroup), ",")
+	for _, qg := range queryGroups {
+		group, ok := fields[qg]["db"].(string)
+		if ok {
+			if groups != nil {
+				groups[qg] = group
+			} else {
+				groups = map[string]string{qg: group}
+			}
+		}
+	}
+	for _, group := range groups {
+		// quote table name if not from sub query
+		if !strings.Contains(group, " ") {
+			group = q.DB.Statement.Quote(group)
+		}
+		db = db.Group(group)
+	}
+	return db
+}
+
+func (q *DBQuery) addSelect(selectedFields []string, field, alias string) []string {
+	// quote table name if not from sub query
+	if !strings.Contains(field, " ") {
+		field = q.DB.Statement.Quote(field)
+	}
+	return append(selectedFields, field+" AS "+q.DB.Statement.Quote(alias))
+}
+
+func (q *DBQuery) toAggSQL(key string) string {
+	opt := map[string]string{
+		QueryCount: "count",
+		QuerySum:   "sum",
+		QueryMin:   "min",
+		QueryMax:   "max",
+		QueryAvg:   "avg",
+	}
+	res, _ := opt[key]
+	return res
+}
+
+func (q *DBQuery) SetSelect(db *gorm.DB, schema map[string]any) *gorm.DB {
+	selectedFields := []string{}
+	fields, _ := schema["fields"].(map[string]map[string]any)
+	querySelect := strings.Split(q.Query.Get(QuerySelect), ",")
+	querySelect = append(querySelect, strings.Split(q.Query.Get(QueryGroup), ",")...)
+	if len(querySelect) > 0 {
+		for _, k := range querySelect {
+			field, ok := fields[k]["db"].(string)
+			if ok {
+				selectedFields = q.addSelect(selectedFields, field, k)
+			} else {
+				aggregationQuery := strings.Split(k, "=")
+				if aggregationQuery[0] == QueryCount {
+
+				}
+				fmt.Println("=================================================")
+				fmt.Println("TODO")
+				fmt.Println(k)
+				fmt.Println("=================================================")
+			}
+		}
+	} else {
+		for k, f := range fields {
+			field, ok := f["db"].(string)
+			if ok {
+				selectedFields = q.addSelect(selectedFields, field, k)
+			}
+		}
+	}
+	return db.Select(strings.Join(selectedFields, ", "))
+}
+
+func (q *DBQuery) SetOrder(db *gorm.DB, schema map[string]any) *gorm.DB {
+	return db
+}
+
+func (q *DBQuery) SetPagination(db *gorm.DB) *gorm.DB {
+	page, limit := q.GetPaginationQuery()
+	if limit == 0 {
+		return db
+	}
+	return db.Limit(int(limit)).Offset(int((page - 1) * limit))
+}
+
+func (q *DBQuery) GetPaginationQuery() (int, int) {
+	if q.Query.Get(QueryDisablePagination) == "true" {
+		return 0, 0
+	}
+	page := 1
+	limit := QueryDefaultLimit
+	if q.Query.Get(QueryPage) != "" {
+		pageTemp, _ := strconv.Atoi(q.Query.Get(QueryPage))
+		if pageTemp > 0 {
+			page = pageTemp
+		}
+	}
+	if q.Query.Get(QueryLimit) != "" {
+		limitTemp, _ := strconv.Atoi(q.Query.Get(QueryLimit))
+		if limitTemp > 0 {
+			if limitTemp > QueryMaxLimit {
+				limit = QueryMaxLimit
+			} else {
+				limit = limitTemp
+			}
+		}
+	}
+	return page, limit
 }
 
 func (q DBQuery) Quote(text string) string {
