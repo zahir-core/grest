@@ -1,6 +1,7 @@
 package grest
 
 import (
+	"database/sql/driver"
 	"net/url"
 	"regexp"
 	"testing"
@@ -15,48 +16,59 @@ func TestDBQueryGeneral(t *testing.T) {
 		t.Fatalf("Error occured : [%v]", err.Error())
 	}
 	mock.ExpectQuery(regexp.QuoteMeta(`
-	SELECT 
-		"a"."id" AS "id",
-		"a"."title" AS "title",
-		"a"."content" AS "content",
-		"a"."author_id" AS "author.id",
-		"u"."name" AS "author.name",
-		"u"."email" AS "author.email",
-		"a"."detail" AS "detail",
-		"a"."is_active" AS "is_active",
-		"a"."created_at" AS "created_at",
-		"a"."updated_at" AS "updated_at",
-		"a"."deleted_at" AS "deleted_at"
-	FROM
-		"articles" AS "u"
-		LEFT JOIN "users" AS "u" ON "u"."id" = "a"."author_id"
-	WHERE
-		"a"."deleted_at" IS NULL
-		AND (lower("u"."name") LIKE $1 OR "a"."is_active"=$2)
-		AND (lower("a"."title") LIKE $3 OR lower("a"."content") LIKE $4 OR lower("u"."name") LIKE $5)
-	ORDER BY
-		"a"."updated_at" DESC
-	LIMIT 10`)).
-		// WithArgs("%foo%", 1, "%bar%", "%bar%", "%bar%"). // todo: check args with %
+		SELECT
+			"a"."author_id" AS "author.id",
+			"a"."content" AS "content",
+			"a"."created_at" AS "created_at",
+			"a"."deleted_at" AS "deleted_at",
+			"a"."detail" AS "detail",
+			"a"."id" AS "id",
+			"a"."is_active" AS "is_active",
+			"a"."is_hidden" AS "is_hidden",
+			"a"."title" AS "title",
+			"a"."updated_at" AS "updated_at",
+			"u"."email" AS "author.email",
+			"u"."name" AS "author.name",
+			coalesce(tr.total_review,0) AS "total_review"
+		FROM 
+			"articles" AS "a"
+			LEFT JOIN "users" AS "u" ON "u"."id"="a"."author_id"
+			LEFT JOIN (
+				SELECT
+					"r"."article_id" AS "id",
+					count(r.article_id) AS "total_review"
+				FROM "reviews" AS "r"
+				GROUP BY
+					"r"."article_id"
+			) AS "tr" ON "tr"."id"="a"."id"
+		WHERE
+			"a"."deleted_at" IS $1
+			AND json_extract_path_text("detail"::json,'foo','bar') LIKE $2
+		ORDER BY 
+			"a"."created_at" DESC
+		LIMIT 10`)).
+		WithArgs(driver.Value(nil), driver.Value("%baz%")).
 		WillReturnRows(sqlmock.NewRows([]string{
-			"id",
-			"title",
-			"content",
 			"author.id",
-			"author.name",
-			"author.email",
-			"detail",
-			"is_active",
+			"content",
 			"created_at",
-			"updated_at",
 			"deleted_at",
+			"detail",
+			"id",
+			"is_active",
+			"is_hidden",
+			"title",
+			"updated_at",
+			"author.email",
+			"author.name",
+			"total_review",
 		}))
 
 	q := url.Values{}
 	// q.Add("author.email.$ilike", "user@email.com%")
-	q.Add("$select", "id,title,$sum:total_review")
-	q.Add("$or", "author.name.$ilike=foo||is_active=true")
-	q.Add("$search", "title,content,author.name=bar")
-	q.Add("$sort", "author.name:i,-title,-detail.foo.bar:i")
+	// q.Add("$select", "id,title,$sum:total_review")
+	// q.Add("$or", "author.name.$ilike=foo||is_active=true")
+	// q.Add("$search", "title,content,author.name=bar")
+	q.Add("detail.foo.bar.$like", "baz")
 	Find(db, &Article{}, q)
 }

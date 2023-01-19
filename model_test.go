@@ -293,7 +293,10 @@ func expectedSchemaStr() string {
             "column": "c.code",
             "direction": "asc"
           }
-        ]
+        ],
+        "tableAliasName": "c",
+        "tableName": "categories",
+        "tableSchema": null
       }
     }
   },
@@ -433,7 +436,10 @@ func expectedSchemaStr() string {
         },
         "isFlat": false,
         "relations": null,
-        "sorts": null
+        "sorts": null,
+        "tableAliasName": "r",
+        "tableName": "reviews",
+        "tableSchema": null
       },
       "tableSchema": {
         "arrayFields": null,
@@ -459,7 +465,10 @@ func expectedSchemaStr() string {
         },
         "isFlat": false,
         "relations": null,
-        "sorts": null
+        "sorts": null,
+        "tableAliasName": "r",
+        "tableName": "reviews",
+        "tableSchema": null
       },
       "type": "left"
     },
@@ -481,6 +490,9 @@ func expectedSchemaStr() string {
       "column": "a.created_at",
       "direction": "desc"
     }
-  ]
+  ],
+  "tableAliasName": "a",
+  "tableName": "articles",
+  "tableSchema": null
 }`
 }

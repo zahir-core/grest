@@ -1,9 +1,9 @@
 package grest
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -162,7 +162,6 @@ func (q *DBQuery) Prepare(schema map[string]any, db *gorm.DB) (*gorm.DB, error) 
 	db = q.SetJoin(db, schema)
 	db = q.SetWhere(db, schema)
 	db = q.SetGroup(db, schema)
-	fmt.Println("todo")
 	return db, err
 }
 
@@ -200,6 +199,11 @@ func (q *DBQuery) SetTable(db *gorm.DB, schema map[string]any) *gorm.DB {
 func (q *DBQuery) SetJoin(db *gorm.DB, schema map[string]any) *gorm.DB {
 	relations, _ := schema["relations"].(map[string]map[string]any)
 	if len(relations) > 0 {
+		type joinStr struct {
+			Str  string
+			Args []any
+		}
+		joins := []joinStr{}
 		for key, rel := range relations {
 			joinType, _ := rel["type"].(string)
 			joinType = strings.ToUpper(joinType)
@@ -221,7 +225,7 @@ func (q *DBQuery) SetJoin(db *gorm.DB, schema map[string]any) *gorm.DB {
 			if len(tableSchema) > 0 {
 				subQuery := q.ToSQL(tableSchema)
 				if subQuery != "" {
-					tableName = "(" + subQuery + ")"
+					tableName = "( " + subQuery + " )"
 				}
 			}
 
@@ -251,8 +255,12 @@ func (q *DBQuery) SetJoin(db *gorm.DB, schema map[string]any) *gorm.DB {
 				if len(joinConditions) > 0 {
 					joinSQL.WriteString(" ON " + strings.Join(joinConditions, " AND "))
 				}
-				db = db.Joins(joinSQL.String(), args...)
+				joins = append(joins, joinStr{Str: joinSQL.String(), Args: args})
 			}
+		}
+		sort.SliceStable(joins, func(i, j int) bool { return joins[i].Str < joins[j].Str })
+		for _, j := range joins {
+			db = db.Joins(j.Str, j.Args...)
 		}
 	}
 	return db
@@ -369,7 +377,23 @@ func (q *DBQuery) qsToCond(key, val string, fields map[string]map[string]any, ar
 		cond["column1"], _ = fields[key]["db"].(string)
 		cond["column1type"], _ = fields[key]["type"].(string)
 	} else {
-		// todo : arrayFields, json, etc
+		for k, v := range fields {
+			if strings.HasPrefix(key, k) {
+				cond["column1"] = k
+				fType, ok := v["type"].(string)
+				if ok && strings.Contains(strings.ToLower(fType), "json") {
+					cond["column1jsonKey"] = strings.Replace(key, k+".", "", 1)
+				}
+			}
+		}
+		if cond["column1"] == nil {
+			// todo : filter from array fields
+			// ?arrayFields.0.field.id={field_id} > where exists (select 1 from array_table at where at.parent_id = parent.id and field_id = {field_id})
+			// ?arrayFields.*.field.id={field_id} > same as above but the array fields response also filtered
+			// for k, v := range arrayFields {
+			// 	// todo
+			// }
+		}
 	}
 
 	colVal := strings.Split(val, QueryField+":")
@@ -429,7 +453,7 @@ func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 	}
 	if column1 != "" {
 		// quote table name if not from sub query
-		if !strings.Contains(column1, " ") {
+		if column1jsonKey == "" && !strings.Contains(column1, " ") && !strings.Contains(column1, "(") {
 			column1 = q.DB.Statement.Quote(column1)
 		}
 		if isCaseInsensitive && !column1isDateTime {
@@ -469,7 +493,7 @@ func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 	}
 	if column2 != "" {
 		// quote table name if not from sub query
-		if !strings.Contains(column2, " ") {
+		if column2jsonKey == "" && !strings.Contains(column2, " ") && !strings.Contains(column2, "(") {
 			column2 = q.DB.Statement.Quote(column2)
 		}
 		if isCaseInsensitive && !column2isDateTime {
@@ -604,6 +628,7 @@ func (q *DBQuery) SetSelect(db *gorm.DB, schema map[string]any) *gorm.DB {
 			}
 		}
 	}
+	sort.Strings(selectedFields)
 	return db.Select(strings.Join(selectedFields, ", "))
 }
 
@@ -626,7 +651,7 @@ func (q *DBQuery) addSelect(selectedFields []string, field, alias string) []stri
 	if !strings.Contains(field, " ") && !strings.Contains(field, "(") {
 		field = q.DB.Statement.Quote(field)
 	}
-	return append(selectedFields, field+" AS "+q.DB.Statement.Quote(alias))
+	return append(selectedFields, field+" AS "+q.Quote(alias))
 }
 
 // SetOrder specify order method when retrieve records
@@ -636,42 +661,42 @@ func (q *DBQuery) SetOrder(db *gorm.DB, schema map[string]any) *gorm.DB {
 	hasQuerySort := false
 	querySorts := strings.Split(q.Query.Get(QuerySort), ",")
 	for _, s := range querySorts {
-		sort := map[string]any{"direction": "asc"}
+		srt := map[string]any{"direction": "asc"}
 		if strings.HasPrefix(s, "-") {
 			s = s[1:]
-			sort["direction"] = "desc"
+			srt["direction"] = "desc"
 		}
 		if strings.HasSuffix(s, ":i") {
 			s = s[0 : len(s)-2]
-			sort["isCaseInsensitive"] = true
+			srt["isCaseInsensitive"] = true
 		}
 		field, ok := fields[s]["db"].(string)
 		if ok {
-			sort["column"] = field
+			srt["column"] = field
 		} else {
 			for k, v := range fields {
 				if strings.HasPrefix(s, k) {
-					sort["column"] = k
+					srt["column"] = k
 					fType, ok := v["type"].(string)
 					if ok && strings.Contains(strings.ToLower(fType), "json") {
-						sort["jsonKey"] = strings.Replace(s, k+".", "", 1)
+						srt["jsonKey"] = strings.Replace(s, k+".", "", 1)
 					}
 				}
 			}
 		}
-		if sort["column"] != nil {
+		if srt["column"] != nil {
 			hasQuerySort = true
-			orderBySQL := q.sortToOrderBySQL(sort)
+			orderBySQL := q.sortToOrderBySQL(srt)
 			if orderBySQL != "" {
 				db = db.Order(orderBySQL)
 			}
 		}
 	}
 
-	for _, sort := range sorts {
-		isRequired, _ := sort["isRequired"].(bool)
+	for _, srt := range sorts {
+		isRequired, _ := srt["isRequired"].(bool)
 		if isRequired || !hasQuerySort {
-			orderBySQL := q.sortToOrderBySQL(sort)
+			orderBySQL := q.sortToOrderBySQL(srt)
 			if orderBySQL != "" {
 				db = db.Order(orderBySQL)
 			}
@@ -682,22 +707,22 @@ func (q *DBQuery) SetOrder(db *gorm.DB, schema map[string]any) *gorm.DB {
 }
 
 // sortToOrderBySQL convert schema sorts to order by method SQL string
-func (q *DBQuery) sortToOrderBySQL(sort map[string]any) string {
-	column, _ := sort["column"].(string)
+func (q *DBQuery) sortToOrderBySQL(srt map[string]any) string {
+	column, _ := srt["column"].(string)
 	if column == "" {
 		return column
 	}
-	jsonKey, _ := sort["jsonKey"].(string)
+	jsonKey, _ := srt["jsonKey"].(string)
 	if jsonKey != "" {
 		column = q.QuoteJSON(column, jsonKey)
 	} else if !strings.Contains(column, " ") && !strings.Contains(column, "(") {
 		column = q.DB.Statement.Quote(column)
 	}
-	isCaseInsensitive, _ := sort["isCaseInsensitive"].(bool)
+	isCaseInsensitive, _ := srt["isCaseInsensitive"].(bool)
 	if isCaseInsensitive {
 		column = "LOWER(" + column + ")"
 	}
-	direction, _ := sort["direction"].(string)
+	direction, _ := srt["direction"].(string)
 	if direction == "" {
 		direction = "ASC"
 	}
