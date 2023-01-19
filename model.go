@@ -109,6 +109,7 @@ type Model struct {
 	// - column : column in the db to be filtered
 	// - jsonKey : dot notation paths of json field in column
 	// - direction : sql order direction (asc, desc)
+	// - isCaseInsensitive : if true, the sort will case insensitive
 	// - isRequired : if true, the sort will not be overridden by the client's own
 	Sorts []map[string]any `json:"-" gorm:"-"`
 }
@@ -366,6 +367,7 @@ func (m *Model) AddSort(sort map[string]any) {
 //	column : column in the db to be filtered
 //	jsonKey : dot notation paths of json field in column
 //	direction : sql order direction (asc, desc)
+//	isCaseInsensitive : if true, the sort will case insensitive
 //	isRequired : if true, the sort will not be overridden by the client's own
 //
 // example :

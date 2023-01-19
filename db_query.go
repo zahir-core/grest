@@ -237,7 +237,7 @@ func (q *DBQuery) SetJoin(db *gorm.DB, schema map[string]any) *gorm.DB {
 				conditions, _ := rel["conditions"].([]map[string]any)
 				for _, cond := range conditions {
 					if len(cond) > 0 {
-						joinCondition, arg := q.toWhereSQL(cond)
+						joinCondition, arg := q.condToWhereSQL(cond)
 						joinConditions = append(joinConditions, joinCondition)
 						args = append(args, arg)
 					}
@@ -265,7 +265,7 @@ func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any) *gorm.DB {
 	filters, _ := schema["filters"].([]map[string]any)
 	if len(filters) > 0 {
 		for _, cond := range filters {
-			whereSQL, arg := q.toWhereSQL(cond)
+			whereSQL, arg := q.condToWhereSQL(cond)
 			if strings.Contains(whereSQL, "?") {
 				db = db.Where(whereSQL, arg)
 			} else {
@@ -278,9 +278,9 @@ func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any) *gorm.DB {
 	fields, _ := schema["fields"].(map[string]map[string]any)
 	arrayFields, _ := schema["arrayFields"].(map[string]map[string]any)
 	for key, val := range q.Query {
-		cond := q.keyValQueryToCond(key, val[0], fields, arrayFields)
+		cond := q.qsToCond(key, val[0], fields, arrayFields)
 		if cond["column1"] != nil {
-			whereSQL, arg := q.toWhereSQL(cond)
+			whereSQL, arg := q.condToWhereSQL(cond)
 			if strings.Contains(whereSQL, "?") {
 				db = db.Where(whereSQL, arg)
 			} else {
@@ -329,9 +329,9 @@ func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any) *gorm.DB {
 				if len(orQ) > 0 {
 					val = orQ[1]
 				}
-				cond := q.keyValQueryToCond(orQ[0], val, fields, arrayFields)
+				cond := q.qsToCond(orQ[0], val, fields, arrayFields)
 				if cond["column1"] != nil {
-					whereSQL, arg := q.toWhereSQL(cond)
+					whereSQL, arg := q.condToWhereSQL(cond)
 					if strings.Contains(whereSQL, "?") {
 						orDB = orDB.Or(whereSQL, arg)
 					} else {
@@ -345,14 +345,14 @@ func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any) *gorm.DB {
 	return db
 }
 
-// keyValQueryToCond convert key val query params to schema conditions
-func (q *DBQuery) keyValQueryToCond(key, val string, fields map[string]map[string]any, arrayFields map[string]map[string]any) map[string]any {
+// qsToCond convert key val query params to schema conditions
+func (q *DBQuery) qsToCond(key, val string, fields map[string]map[string]any, arrayFields map[string]map[string]any) map[string]any {
 	cond := map[string]any{}
 	key, _ = url.QueryUnescape(key)
 	subkey := strings.Split(key, ".")
 	lastSubkey := subkey[len(subkey)-1]
 
-	operator := q.toOptSQL(lastSubkey)
+	operator := q.qsToOptSQL(lastSubkey)
 	cond["operator"] = operator
 
 	if lastSubkey == QueryOptInsensitiveLike || lastSubkey == QueryOptInsensitiveNotLike {
@@ -386,8 +386,8 @@ func (q *DBQuery) keyValQueryToCond(key, val string, fields map[string]map[strin
 	return cond
 }
 
-// toOptSQL return sql operator from part of query params key
-func (q *DBQuery) toOptSQL(key string) string {
+// qsToOptSQL return sql operator from part of query params key
+func (q *DBQuery) qsToOptSQL(key string) string {
 	opt := map[string]string{
 		QueryOptEqual:              "=",
 		QueryOptNotEqual:           "!=",
@@ -406,8 +406,8 @@ func (q *DBQuery) toOptSQL(key string) string {
 	return res
 }
 
-// toWhereSQL convert schema conditions to where method SQL
-func (q *DBQuery) toWhereSQL(cond map[string]any) (string, any) {
+// condToWhereSQL convert schema conditions to where method SQL string
+func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 	where := strings.Builder{}
 
 	operator, _ := cond["operator"].(string)
@@ -533,7 +533,7 @@ func (q *DBQuery) SetGroup(db *gorm.DB, schema map[string]any) *gorm.DB {
 		isAggFunc := false
 		for _, k := range querySelect {
 			agg := strings.Split(k, ":")
-			aggFunc := q.toAggFuncSQL(agg[0])
+			aggFunc := q.qsToAggFuncSQL(agg[0])
 			if aggFunc != "" {
 				isAggFunc = true
 			}
@@ -575,7 +575,7 @@ func (q *DBQuery) SetSelect(db *gorm.DB, schema map[string]any) *gorm.DB {
 				selectedFields = q.addSelect(selectedFields, field, k)
 			} else {
 				agg := strings.Split(k, ":")
-				aggFunc := q.toAggFuncSQL(agg[0])
+				aggFunc := q.qsToAggFuncSQL(agg[0])
 				if aggFunc != "" {
 					aggField := ""
 					aggAlias := aggFunc
@@ -607,8 +607,8 @@ func (q *DBQuery) SetSelect(db *gorm.DB, schema map[string]any) *gorm.DB {
 	return db.Select(strings.Join(selectedFields, ", "))
 }
 
-// toAggFuncSQL return sql aggregate function from part of query params value
-func (q *DBQuery) toAggFuncSQL(key string) string {
+// qsToAggFuncSQL return aggregate function SQL string from part of query params value
+func (q *DBQuery) qsToAggFuncSQL(key string) string {
 	opt := map[string]string{
 		QueryCount: "COUNT",
 		QuerySum:   "SUM",
@@ -620,7 +620,7 @@ func (q *DBQuery) toAggFuncSQL(key string) string {
 	return aggFuncSQL
 }
 
-// addSelect append quoted select query
+// addSelect append quoted select SQL string
 func (q *DBQuery) addSelect(selectedFields []string, field, alias string) []string {
 	// quote table name if not from sub query
 	if !strings.Contains(field, " ") && !strings.Contains(field, "(") {
@@ -631,10 +631,81 @@ func (q *DBQuery) addSelect(selectedFields []string, field, alias string) []stri
 
 // SetOrder specify order method when retrieve records
 func (q *DBQuery) SetOrder(db *gorm.DB, schema map[string]any) *gorm.DB {
+	fields, _ := schema["fields"].(map[string]map[string]any)
+	sorts, _ := schema["sorts"].([]map[string]any)
+	hasQuerySort := false
+	querySorts := strings.Split(q.Query.Get(QuerySort), ",")
+	for _, s := range querySorts {
+		sort := map[string]any{"direction": "asc"}
+		if strings.HasPrefix(s, "-") {
+			s = s[1:]
+			sort["direction"] = "desc"
+		}
+		if strings.HasSuffix(s, ":i") {
+			s = s[0 : len(s)-2]
+			sort["isCaseInsensitive"] = true
+		}
+		field, ok := fields[s]["db"].(string)
+		if ok {
+			sort["column"] = field
+		} else {
+			for k, v := range fields {
+				if strings.HasPrefix(s, k) {
+					sort["column"] = k
+					fType, ok := v["type"].(string)
+					if ok && strings.Contains(strings.ToLower(fType), "json") {
+						sort["jsonKey"] = strings.Replace(s, k+".", "", 1)
+					}
+				}
+			}
+		}
+		if sort["column"] != nil {
+			hasQuerySort = true
+			orderBySQL := q.sortToOrderBySQL(sort)
+			if orderBySQL != "" {
+				db = db.Order(orderBySQL)
+			}
+		}
+	}
+
+	for _, sort := range sorts {
+		isRequired, _ := sort["isRequired"].(bool)
+		if isRequired || !hasQuerySort {
+			orderBySQL := q.sortToOrderBySQL(sort)
+			if orderBySQL != "" {
+				db = db.Order(orderBySQL)
+			}
+		}
+	}
+
 	return db
 }
 
-// SetOrder specify limit & offset method when retrieve records
+// sortToOrderBySQL convert schema sorts to order by method SQL string
+func (q *DBQuery) sortToOrderBySQL(sort map[string]any) string {
+	column, _ := sort["column"].(string)
+	if column == "" {
+		return column
+	}
+	jsonKey, _ := sort["jsonKey"].(string)
+	if jsonKey != "" {
+		column = q.QuoteJSON(column, jsonKey)
+	} else if !strings.Contains(column, " ") && !strings.Contains(column, "(") {
+		column = q.DB.Statement.Quote(column)
+	}
+	isCaseInsensitive, _ := sort["isCaseInsensitive"].(bool)
+	if isCaseInsensitive {
+		column = "LOWER(" + column + ")"
+	}
+	direction, _ := sort["direction"].(string)
+	if direction == "" {
+		direction = "ASC"
+	}
+
+	return column + " " + strings.ToUpper(direction)
+}
+
+// SetPagination specify limit & offset method when retrieve records
 func (q *DBQuery) SetPagination(db *gorm.DB) *gorm.DB {
 	page, limit := q.GetPaginationQuery()
 	if limit == 0 {
@@ -669,7 +740,7 @@ func (q *DBQuery) GetPaginationQuery() (int, int) {
 	return page, limit
 }
 
-// Quote returns quoted value
+// Quote returns quoted SQL string
 func (q DBQuery) Quote(text string) string {
 	switch q.DB.Dialector.Name() {
 	case "sqlite", "mysql":
@@ -681,7 +752,7 @@ func (q DBQuery) Quote(text string) string {
 	}
 }
 
-// QuoteJSON returns quoted json extract string for json column with json key
+// QuoteJSON returns quoted json extract SQL string for json column with json key
 func (q DBQuery) QuoteJSON(column, jsonKey string) string {
 	switch q.DB.Dialector.Name() {
 	case "mysql", "sqlite":

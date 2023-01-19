@@ -57,5 +57,6 @@ func TestDBQueryGeneral(t *testing.T) {
 	q.Add("$select", "id,title,$sum:total_review")
 	q.Add("$or", "author.name.$ilike=foo||is_active=true")
 	q.Add("$search", "title,content,author.name=bar")
+	q.Add("$sort", "author.name:i,-title,-detail.foo.bar:i")
 	Find(db, &Article{}, q)
 }
