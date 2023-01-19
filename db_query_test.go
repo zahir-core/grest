@@ -54,7 +54,7 @@ func TestDBQueryGeneral(t *testing.T) {
 
 	q := url.Values{}
 	// q.Add("author.email.$ilike", "user@email.com%")
-	q.Add("$group", "id,title,$sum=total_review")
+	q.Add("$select", "id,title,$sum:total_review")
 	q.Add("$or", "author.name.$ilike=foo||is_active=true")
 	q.Add("$search", "title,content,author.name=bar")
 	Find(db, &Article{}, q)

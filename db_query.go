@@ -102,6 +102,7 @@ var (
 	QueryDbField = "$db_field"
 )
 
+// Find finds all records matching given conditions conds from model and query params
 func Find(db *gorm.DB, model ModelInterface, query url.Values) ([]map[string]any, error) {
 	q := &DBQuery{
 		DB:     db,
@@ -112,6 +113,7 @@ func Find(db *gorm.DB, model ModelInterface, query url.Values) ([]map[string]any
 	return q.Find(q.Schema)
 }
 
+// DBQuery DBQuery definition for querying with model & query params
 type DBQuery struct {
 	DB     *gorm.DB
 	Model  ModelInterface
@@ -121,19 +123,7 @@ type DBQuery struct {
 	Err    error
 }
 
-func (q *DBQuery) Prepare(schema map[string]any, db *gorm.DB) (*gorm.DB, error) {
-	var err error
-	if db == nil {
-		db = q.DB.Session(&gorm.Session{})
-	}
-	db = q.SetTable(db, schema)
-	db = q.SetJoin(db, schema)
-	db = q.SetWhere(db, schema)
-	db = q.SetGroup(db, schema)
-	fmt.Println("todo")
-	return db, err
-}
-
+// Find finds all records matching given conditions conds from schema and query params
 func (q *DBQuery) Find(schema map[string]any) ([]map[string]any, error) {
 	rows := []map[string]any{}
 	db, err := q.Prepare(schema, nil)
@@ -150,14 +140,33 @@ func (q *DBQuery) Find(schema map[string]any) ([]map[string]any, error) {
 	return rows, nil
 }
 
+// ToSQL generate SQL string from schema and query params
 func (q *DBQuery) ToSQL(schema map[string]any) string {
 	return q.DB.ToSQL(func(tx *gorm.DB) *gorm.DB {
-		db, _ := q.Prepare(schema, tx)
 		rows := []map[string]any{}
+		db, _ := q.Prepare(schema, tx)
+		schema["is_skip_query_select"] = true
+		db = q.SetSelect(db, schema)
+		db = q.SetOrder(db, schema)
 		return db.Find(&rows)
 	})
 }
 
+// Prepare prepare gorm.DB for querying with schema & query params
+func (q *DBQuery) Prepare(schema map[string]any, db *gorm.DB) (*gorm.DB, error) {
+	var err error
+	if db == nil {
+		db = q.DB.Session(&gorm.Session{})
+	}
+	db = q.SetTable(db, schema)
+	db = q.SetJoin(db, schema)
+	db = q.SetWhere(db, schema)
+	db = q.SetGroup(db, schema)
+	fmt.Println("todo")
+	return db, err
+}
+
+// SetTable specify the table you would like to run db operations
 func (q *DBQuery) SetTable(db *gorm.DB, schema map[string]any) *gorm.DB {
 	tableName, _ := schema["tableName"].(string)
 	tableAliasName, _ := schema["tableAliasName"].(string)
@@ -187,6 +196,7 @@ func (q *DBQuery) SetTable(db *gorm.DB, schema map[string]any) *gorm.DB {
 	return db
 }
 
+// SetJoin specify the join method when querying
 func (q *DBQuery) SetJoin(db *gorm.DB, schema map[string]any) *gorm.DB {
 	relations, _ := schema["relations"].(map[string]map[string]any)
 	if len(relations) > 0 {
@@ -248,6 +258,155 @@ func (q *DBQuery) SetJoin(db *gorm.DB, schema map[string]any) *gorm.DB {
 	return db
 }
 
+// SetWhere specify the where method when querying
+func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any) *gorm.DB {
+
+	// filter from schema
+	filters, _ := schema["filters"].([]map[string]any)
+	if len(filters) > 0 {
+		for _, cond := range filters {
+			whereSQL, arg := q.toWhereSQL(cond)
+			if strings.Contains(whereSQL, "?") {
+				db = db.Where(whereSQL, arg)
+			} else {
+				db = db.Where(whereSQL)
+			}
+		}
+	}
+
+	// filter from query except $search & $or
+	fields, _ := schema["fields"].(map[string]map[string]any)
+	arrayFields, _ := schema["arrayFields"].(map[string]map[string]any)
+	for key, val := range q.Query {
+		cond := q.keyValQueryToCond(key, val[0], fields, arrayFields)
+		if cond["column1"] != nil {
+			whereSQL, arg := q.toWhereSQL(cond)
+			if strings.Contains(whereSQL, "?") {
+				db = db.Where(whereSQL, arg)
+			} else {
+				db = db.Where(whereSQL)
+			}
+		}
+	}
+
+	// filter from query $search
+	qs := strings.Split(q.Query.Get(QuerySearch), "=")
+	if len(qs) > 1 {
+		valSearch := strings.Builder{}
+		for i, s := range strings.Split(qs[0], ",") {
+			if i == 0 {
+				valSearch.WriteString(s + "." + QueryOptInsensitiveLike + "=" + qs[1])
+			} else {
+				valSearch.WriteString(QueryOrDelimiter + s + "." + QueryOptInsensitiveLike + "=" + qs[1])
+			}
+		}
+		if valSearch.Len() > 0 {
+			valSearchStr := valSearch.String()
+			orVal, isOrValExists := q.Query[QueryOr]
+			isSearchValExists := !isOrValExists
+			if !isSearchValExists {
+				for _, ov := range orVal {
+					if ov == valSearchStr {
+						isSearchValExists = true
+					}
+				}
+			}
+			if !isSearchValExists {
+				q.Query.Add(QueryOr, valSearch.String())
+			}
+		}
+	}
+
+	// filter from query $or
+	orVal, isOrValExists := q.Query[QueryOr]
+	if isOrValExists {
+		for _, ov := range orVal {
+			orDB := q.DB.Session(&gorm.Session{})
+			orQueries := strings.Split(ov, QueryOrDelimiter)
+			for _, orQuery := range orQueries {
+				orQ := strings.Split(orQuery, "=")
+				val := ""
+				if len(orQ) > 0 {
+					val = orQ[1]
+				}
+				cond := q.keyValQueryToCond(orQ[0], val, fields, arrayFields)
+				if cond["column1"] != nil {
+					whereSQL, arg := q.toWhereSQL(cond)
+					if strings.Contains(whereSQL, "?") {
+						orDB = orDB.Or(whereSQL, arg)
+					} else {
+						orDB = orDB.Or(whereSQL)
+					}
+				}
+			}
+			db = db.Where(orDB)
+		}
+	}
+	return db
+}
+
+// keyValQueryToCond convert key val query params to schema conditions
+func (q *DBQuery) keyValQueryToCond(key, val string, fields map[string]map[string]any, arrayFields map[string]map[string]any) map[string]any {
+	cond := map[string]any{}
+	key, _ = url.QueryUnescape(key)
+	subkey := strings.Split(key, ".")
+	lastSubkey := subkey[len(subkey)-1]
+
+	operator := q.toOptSQL(lastSubkey)
+	cond["operator"] = operator
+
+	if lastSubkey == QueryOptInsensitiveLike || lastSubkey == QueryOptInsensitiveNotLike {
+		cond["isCaseInsensitive"] = true
+	}
+
+	if subkey[0] == QueryDbField {
+		cond["column1"] = strings.ReplaceAll(key, QueryDbField+".", "")
+	}
+	if operator != "" {
+		key = strings.ReplaceAll(key, "."+lastSubkey, "")
+	}
+	if fields[key] != nil {
+		cond["column1"], _ = fields[key]["db"].(string)
+		cond["column1type"], _ = fields[key]["type"].(string)
+	} else {
+		// todo : arrayFields, json, etc
+	}
+
+	colVal := strings.Split(val, QueryField+":")
+	if len(colVal) > 1 {
+		cond["column2"] = colVal[1]
+	} else {
+		vUnescape, err := url.QueryUnescape(val)
+		if err != nil {
+			cond["value"] = val
+		} else {
+			cond["value"] = vUnescape
+		}
+	}
+	return cond
+}
+
+// toOptSQL return sql operator from part of query params key
+func (q *DBQuery) toOptSQL(key string) string {
+	opt := map[string]string{
+		QueryOptEqual:              "=",
+		QueryOptNotEqual:           "!=",
+		QueryOptGreaterThan:        ">",
+		QueryOptGreaterThanOrEqual: ">=",
+		QueryOptLowerThan:          "<",
+		QueryOptLowerThanOrEqual:   "<=",
+		QueryOptLike:               "LIKE",
+		QueryOptNotLike:            "NOT LIKE",
+		QueryOptInsensitiveLike:    "LIKE",
+		QueryOptInsensitiveNotLike: "NOT LIKE",
+		QueryOptIn:                 "IN",
+		QueryOptNotIn:              "NOT IN",
+	}
+	res, _ := opt[key]
+	return res
+}
+
+// toWhereSQL convert schema conditions to where method SQL
 func (q *DBQuery) toWhereSQL(cond map[string]any) (string, any) {
 	where := strings.Builder{}
 
@@ -348,154 +507,14 @@ func (q *DBQuery) toWhereSQL(cond map[string]any) (string, any) {
 	return where.String(), arg
 }
 
-func (q *DBQuery) toOptSQL(key string) string {
-	opt := map[string]string{
-		QueryOptEqual:              "=",
-		QueryOptNotEqual:           "!=",
-		QueryOptGreaterThan:        ">",
-		QueryOptGreaterThanOrEqual: ">=",
-		QueryOptLowerThan:          "<",
-		QueryOptLowerThanOrEqual:   "<=",
-		QueryOptLike:               "LIKE",
-		QueryOptNotLike:            "NOT LIKE",
-		QueryOptInsensitiveLike:    "LIKE",
-		QueryOptInsensitiveNotLike: "NOT LIKE",
-		QueryOptIn:                 "IN",
-		QueryOptNotIn:              "NOT IN",
-	}
-	res, _ := opt[key]
-	return res
-}
-
-func (q *DBQuery) keyValQueryToCond(key, val string, fields map[string]map[string]any, arrayFields map[string]map[string]any) map[string]any {
-	cond := map[string]any{}
-	key, _ = url.QueryUnescape(key)
-	subkey := strings.Split(key, ".")
-	lastSubkey := subkey[len(subkey)-1]
-
-	operator := q.toOptSQL(lastSubkey)
-	cond["operator"] = operator
-
-	if lastSubkey == QueryOptInsensitiveLike || lastSubkey == QueryOptInsensitiveNotLike {
-		cond["isCaseInsensitive"] = true
-	}
-
-	if subkey[0] == QueryDbField {
-		cond["column1"] = strings.ReplaceAll(key, QueryDbField+".", "")
-	}
-	if operator != "" {
-		key = strings.ReplaceAll(key, "."+lastSubkey, "")
-	}
-	if fields[key] != nil {
-		cond["column1"], _ = fields[key]["db"].(string)
-		cond["column1type"], _ = fields[key]["type"].(string)
-	} else {
-		// todo : arrayFields, json, etc
-	}
-
-	colVal := strings.Split(val, QueryField+":")
-	if len(colVal) > 1 {
-		cond["column2"] = colVal[1]
-	} else {
-		vUnescape, err := url.QueryUnescape(val)
-		if err != nil {
-			cond["value"] = val
-		} else {
-			cond["value"] = vUnescape
-		}
-	}
-	return cond
-}
-
-func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any) *gorm.DB {
-
-	// filter from schema
-	filters, _ := schema["filters"].([]map[string]any)
-	if len(filters) > 0 {
-		for _, cond := range filters {
-			whereSQL, arg := q.toWhereSQL(cond)
-			if strings.Contains(whereSQL, "?") {
-				db = db.Where(whereSQL, arg)
-			} else {
-				db = db.Where(whereSQL)
-			}
-		}
-	}
-
-	// filter from query except $search & $or
-	fields, _ := schema["fields"].(map[string]map[string]any)
-	arrayFields, _ := schema["arrayFields"].(map[string]map[string]any)
-	for key, val := range q.Query {
-		cond := q.keyValQueryToCond(key, val[0], fields, arrayFields)
-		if cond["column1"] != nil {
-			whereSQL, arg := q.toWhereSQL(cond)
-			if strings.Contains(whereSQL, "?") {
-				db = db.Where(whereSQL, arg)
-			} else {
-				db = db.Where(whereSQL)
-			}
-		}
-	}
-
-	// filter from query $search
-	qs := strings.Split(q.Query.Get(QuerySearch), "=")
-	if len(qs) > 1 {
-		valSearch := strings.Builder{}
-		for i, s := range strings.Split(qs[0], ",") {
-			if i == 0 {
-				valSearch.WriteString(s + "." + QueryOptInsensitiveLike + "=" + qs[1])
-			} else {
-				valSearch.WriteString(QueryOrDelimiter + s + "." + QueryOptInsensitiveLike + "=" + qs[1])
-			}
-		}
-		if valSearch.Len() > 0 {
-			valSearchStr := valSearch.String()
-			orVal, isOrValExists := q.Query[QueryOr]
-			isSearchValExists := !isOrValExists
-			if !isSearchValExists {
-				for _, ov := range orVal {
-					if ov == valSearchStr {
-						isSearchValExists = true
-					}
-				}
-			}
-			if !isSearchValExists {
-				q.Query.Add(QueryOr, valSearch.String())
-			}
-		}
-	}
-
-	// filter from query $or
-	orVal, isOrValExists := q.Query[QueryOr]
-	if isOrValExists {
-		for _, ov := range orVal {
-			orDB := q.DB.Session(&gorm.Session{})
-			orQueries := strings.Split(ov, QueryOrDelimiter)
-			for _, orQuery := range orQueries {
-				orQ := strings.Split(orQuery, "=")
-				val := ""
-				if len(orQ) > 0 {
-					val = orQ[1]
-				}
-				cond := q.keyValQueryToCond(orQ[0], val, fields, arrayFields)
-				if cond["column1"] != nil {
-					whereSQL, arg := q.toWhereSQL(cond)
-					if strings.Contains(whereSQL, "?") {
-						orDB = orDB.Or(whereSQL, arg)
-					} else {
-						orDB = orDB.Or(whereSQL)
-					}
-				}
-			}
-			db = db.Where(orDB)
-		}
-	}
-	return db
-}
-
+// SetGroup specify the group method when querying
 func (q *DBQuery) SetGroup(db *gorm.DB, schema map[string]any) *gorm.DB {
 	fields, _ := schema["fields"].(map[string]map[string]any)
+
+	// group from schema
 	groups, _ := schema["groups"].(map[string]string)
+
+	// group from query $group
 	queryGroups := strings.Split(q.Query.Get(QueryGroup), ",")
 	for _, qg := range queryGroups {
 		group, ok := fields[qg]["db"].(string)
@@ -507,6 +526,32 @@ func (q *DBQuery) SetGroup(db *gorm.DB, schema map[string]any) *gorm.DB {
 			}
 		}
 	}
+
+	// group from query $select with aggregation
+	querySelect := strings.Split(q.Query.Get(QuerySelect), ",")
+	if len(querySelect) > 0 {
+		isAggFunc := false
+		for _, k := range querySelect {
+			agg := strings.Split(k, ":")
+			aggFunc := q.toAggFuncSQL(agg[0])
+			if aggFunc != "" {
+				isAggFunc = true
+			}
+		}
+		if isAggFunc {
+			for _, k := range querySelect {
+				group, ok := fields[k]["db"].(string)
+				if ok {
+					if groups != nil {
+						groups[k] = group
+					} else {
+						groups = map[string]string{k: group}
+					}
+				}
+			}
+		}
+	}
+
 	for _, group := range groups {
 		// quote table name if not from sub query
 		if !strings.Contains(group, " ") {
@@ -517,48 +562,41 @@ func (q *DBQuery) SetGroup(db *gorm.DB, schema map[string]any) *gorm.DB {
 	return db
 }
 
-func (q *DBQuery) addSelect(selectedFields []string, field, alias string) []string {
-	// quote table name if not from sub query
-	if !strings.Contains(field, " ") {
-		field = q.DB.Statement.Quote(field)
-	}
-	return append(selectedFields, field+" AS "+q.DB.Statement.Quote(alias))
-}
-
-func (q *DBQuery) toAggSQL(key string) string {
-	opt := map[string]string{
-		QueryCount: "count",
-		QuerySum:   "sum",
-		QueryMin:   "min",
-		QueryMax:   "max",
-		QueryAvg:   "avg",
-	}
-	res, _ := opt[key]
-	return res
-}
-
+// SetSelect specify fields that you want when querying
 func (q *DBQuery) SetSelect(db *gorm.DB, schema map[string]any) *gorm.DB {
 	selectedFields := []string{}
 	fields, _ := schema["fields"].(map[string]map[string]any)
 	querySelect := strings.Split(q.Query.Get(QuerySelect), ",")
 	querySelect = append(querySelect, strings.Split(q.Query.Get(QueryGroup), ",")...)
-	if len(querySelect) > 0 {
+	if len(querySelect) > 0 && schema["is_skip_query_select"] == nil {
 		for _, k := range querySelect {
 			field, ok := fields[k]["db"].(string)
 			if ok {
 				selectedFields = q.addSelect(selectedFields, field, k)
 			} else {
-				aggregationQuery := strings.Split(k, "=")
-				if aggregationQuery[0] == QueryCount {
-
+				agg := strings.Split(k, ":")
+				aggFunc := q.toAggFuncSQL(agg[0])
+				if aggFunc != "" {
+					aggField := ""
+					aggAlias := aggFunc
+					if len(agg) > 1 {
+						field, ok = fields[agg[1]]["db"].(string)
+						if ok {
+							aggField = aggFunc + "(" + field + ")"
+							aggAlias = strings.ToLower(aggFunc) + "_" + agg[1]
+						}
+					} else if agg[0] == QueryCount {
+						aggField = "COUNT(*)"
+						aggAlias = "count_all"
+					}
+					if aggField != "" {
+						selectedFields = q.addSelect(selectedFields, aggField, aggAlias)
+					}
 				}
-				fmt.Println("=================================================")
-				fmt.Println("TODO")
-				fmt.Println(k)
-				fmt.Println("=================================================")
 			}
 		}
-	} else {
+	}
+	if len(selectedFields) == 0 {
 		for k, f := range fields {
 			field, ok := f["db"].(string)
 			if ok {
@@ -569,18 +607,43 @@ func (q *DBQuery) SetSelect(db *gorm.DB, schema map[string]any) *gorm.DB {
 	return db.Select(strings.Join(selectedFields, ", "))
 }
 
+// toAggFuncSQL return sql aggregate function from part of query params value
+func (q *DBQuery) toAggFuncSQL(key string) string {
+	opt := map[string]string{
+		QueryCount: "COUNT",
+		QuerySum:   "SUM",
+		QueryMin:   "MIN",
+		QueryMax:   "MAX",
+		QueryAvg:   "AVG",
+	}
+	aggFuncSQL, _ := opt[key]
+	return aggFuncSQL
+}
+
+// addSelect append quoted select query
+func (q *DBQuery) addSelect(selectedFields []string, field, alias string) []string {
+	// quote table name if not from sub query
+	if !strings.Contains(field, " ") && !strings.Contains(field, "(") {
+		field = q.DB.Statement.Quote(field)
+	}
+	return append(selectedFields, field+" AS "+q.DB.Statement.Quote(alias))
+}
+
+// SetOrder specify order method when retrieve records
 func (q *DBQuery) SetOrder(db *gorm.DB, schema map[string]any) *gorm.DB {
 	return db
 }
 
+// SetOrder specify limit & offset method when retrieve records
 func (q *DBQuery) SetPagination(db *gorm.DB) *gorm.DB {
 	page, limit := q.GetPaginationQuery()
 	if limit == 0 {
 		return db
 	}
-	return db.Limit(int(limit)).Offset(int((page - 1) * limit))
+	return db.Limit(limit).Offset((page - 1) * limit)
 }
 
+// GetPaginationQuery return desire page & limit from query params
 func (q *DBQuery) GetPaginationQuery() (int, int) {
 	if q.Query.Get(QueryDisablePagination) == "true" {
 		return 0, 0
@@ -606,6 +669,7 @@ func (q *DBQuery) GetPaginationQuery() (int, int) {
 	return page, limit
 }
 
+// Quote returns quoted value
 func (q DBQuery) Quote(text string) string {
 	switch q.DB.Dialector.Name() {
 	case "sqlite", "mysql":
@@ -617,6 +681,7 @@ func (q DBQuery) Quote(text string) string {
 	}
 }
 
+// QuoteJSON returns quoted json extract string for json column with json key
 func (q DBQuery) QuoteJSON(column, jsonKey string) string {
 	switch q.DB.Dialector.Name() {
 	case "mysql", "sqlite":
@@ -639,6 +704,7 @@ func (q DBQuery) QuoteJSON(column, jsonKey string) string {
 	}
 }
 
+// NewUUIDSQL returns uuid SQL string
 func (q DBQuery) NewUUIDSQL() string {
 	switch q.DB.Dialector.Name() {
 	case "sqlite":
