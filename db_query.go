@@ -534,12 +534,14 @@ func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 
 	arg, isValueExists := cond["value"]
 	argStr, _ := arg.(string)
+	isNullSQL := false
 	if isValueExists && (arg == nil || strings.ToLower(argStr) == "null") {
-		sqlNullOpt := " IS "
+		isNullSQL = true
+		where.WriteString(" IS")
 		if operator != "=" {
-			sqlNullOpt += "NOT "
+			where.WriteString(" NOT")
 		}
-		where.WriteString(sqlNullOpt)
+		where.WriteString(" NULL")
 	} else if isOperatorIN || isOperatorLIKE {
 		sqlInLikeOpt := strings.ToUpper(operator)
 		if !strings.Contains(operator, " ") {
@@ -575,7 +577,7 @@ func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 		if argStr != "" {
 			arg = strings.Split(argStr, ",")
 		}
-	} else {
+	} else if !isNullSQL {
 		where.WriteString("?")
 		if argStr != "" {
 			if isCaseInsensitive || column1isBool {

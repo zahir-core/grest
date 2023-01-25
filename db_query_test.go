@@ -42,12 +42,12 @@ func TestDBQueryGeneral(t *testing.T) {
 					"r"."article_id"
 			) AS "tr" ON "tr"."id"="a"."id"
 		WHERE
-			"a"."deleted_at" IS $1
-			AND json_extract_path_text("detail"::json,'foo','bar') LIKE $2
+			"a"."deleted_at" IS NULL
+			AND json_extract_path_text("detail"::json,'foo','bar') LIKE $1
 		ORDER BY 
 			"a"."created_at" DESC
 		LIMIT 10`)).
-		WithArgs(driver.Value(nil), driver.Value("%baz%")).
+		WithArgs(driver.Value("%baz%")).
 		WillReturnRows(sqlmock.NewRows([]string{
 			"author.id",
 			"content",
