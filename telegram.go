@@ -10,6 +10,12 @@ import (
 	"path/filepath"
 )
 
+type TelegramInterface interface {
+	AddMessage(text string)
+	AddAttachment(file *multipart.FileHeader)
+	Send() error
+}
+
 type Telegram struct {
 	BaseURL     string
 	BotToken    string

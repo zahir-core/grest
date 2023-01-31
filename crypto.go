@@ -19,6 +19,14 @@ var (
 	CryptoInfo = "info"
 )
 
+type CryptoInterface interface {
+	Encrypt(text string) (string, error)
+	Decrypt(text string) (string, error)
+	GenerateKey() ([]byte, error)
+	PKCS5Padding(ciphertext []byte, blockSize int) []byte
+	PKCS5Unpadding(encrypt []byte) ([]byte, error)
+}
+
 type Crypto struct {
 	Key  string
 	Salt string

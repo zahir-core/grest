@@ -15,6 +15,17 @@ import (
 	"time"
 )
 
+type HttpClientInterface interface {
+	AddHeader(key, value string)
+	AddMultipartBody(body any) error
+	AddUrlEncodedBody(body any) error
+	AddJsonBody(body any) error
+	AddXmlBody(body any) error
+	Send() (*http.Response, error)
+	UnmarshalJson(v any) error
+	UnmarshalXml(v any) error
+}
+
 type HttpClient struct {
 	IsDebug      bool
 	Method       string

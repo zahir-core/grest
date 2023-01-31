@@ -10,6 +10,16 @@ import (
 	"gorm.io/gorm"
 )
 
+type DBInterface interface {
+	RegisterConn(connName string, conn *gorm.DB)
+	Conn(connName string) (*gorm.DB, error)
+	Close()
+	RegisterTable(connName string, t Table) error
+	MigrateTable(tx *gorm.DB, connName string, mTable MigrationTable) error
+	RegisterSeeder(connName, seederKey string, seederHandler SeederHandler) error
+	RunSeeder(tx *gorm.DB, connName string, seedTable SeederTable) error
+}
+
 type DB struct {
 	Conns      map[string]*gorm.DB
 	Migrations map[string]map[string]Table

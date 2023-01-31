@@ -7,6 +7,12 @@ import (
 // see: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Language
 const LangHeader = "Content-Language"
 
+type TranslatorInterface interface {
+	AddTranslation(lang string, messages map[string]string)
+	GetTranslation(lang string) map[string]string
+	Trans(lang, key string, params ...map[string]string) string
+}
+
 type Translator struct {
 	i18n map[string]map[string]string
 }

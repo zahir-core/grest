@@ -10,6 +10,15 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
+type CacheInterface interface {
+	Configure() error
+	Get(key string, val any) error
+	Set(key string, val any, e ...time.Duration) error
+	Delete(key string) error
+	DeleteWithPrefix(prefix string) error
+	Clear() error
+}
+
 type Cache struct {
 	Exp         time.Duration
 	Ctx         context.Context
