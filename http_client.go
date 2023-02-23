@@ -21,6 +21,7 @@ type HttpClientInterface interface {
 	AddUrlEncodedBody(body any) error
 	AddJsonBody(body any) error
 	AddXmlBody(body any) error
+	SetTimeout(timeout time.Duration)
 	Send() (*http.Response, error)
 	UnmarshalJson(v any) error
 	UnmarshalXml(v any) error
@@ -28,6 +29,7 @@ type HttpClientInterface interface {
 
 type HttpClient struct {
 	IsDebug      bool
+	Timeout      time.Duration
 	Method       string
 	Url          string
 	Header       http.Header
@@ -179,6 +181,10 @@ func (c *HttpClient) AddXmlBody(body any) error {
 	return nil
 }
 
+func (c *HttpClient) SetTimeout(timeout time.Duration) {
+	c.Timeout = timeout
+}
+
 func (c *HttpClient) Send() (*http.Response, error) {
 	req, err := http.NewRequest(c.Method, c.Url, c.Body)
 	if err != nil {
@@ -197,7 +203,11 @@ func (c *HttpClient) Send() (*http.Response, error) {
 	}
 
 	startTime := time.Now()
-	res, err := http.DefaultClient.Do(req)
+	client := http.DefaultClient
+	if c.Timeout > 0 {
+		client.Timeout = c.Timeout
+	}
+	res, err := client.Do(req)
 	endTime := time.Now()
 	responseTime := endTime.Sub(startTime).Seconds()
 	if err != nil {
