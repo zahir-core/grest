@@ -126,9 +126,9 @@ func (db *DB) MigrateTable(tx *gorm.DB, connName string, mTable MigrationTable) 
 		Take(&mData)
 
 	migrationMap := map[string]string{}
-	migrationJsonString, isMigrationStringExist := mData["value"]
+	migrationJsonString, isMigrationStringExist := mData["value"].(string)
 	if isMigrationStringExist {
-		json.Unmarshal([]byte(migrationJsonString.(string)), &migrationMap)
+		json.Unmarshal([]byte(migrationJsonString), &migrationMap)
 	}
 
 	dbMigrations, isDbMigrationExist := db.Migrations[connName]
@@ -203,9 +203,9 @@ func (db *DB) RunSeeder(tx *gorm.DB, connName string, seedTable SeederTable) err
 		Take(&seedData)
 
 	seedMap := map[string]bool{}
-	seedJsonString, isSeedStringExist := seedData["value"]
+	seedJsonString, isSeedStringExist := seedData["value"].(string)
 	if isSeedStringExist {
-		json.Unmarshal([]byte(seedJsonString.(string)), &seedMap)
+		json.Unmarshal([]byte(seedJsonString), &seedMap)
 	}
 
 	registeredSeeds, isRegisteredSeedExist := db.Seeders[connName]
