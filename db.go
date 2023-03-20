@@ -159,13 +159,13 @@ func (db *DB) MigrateTable(tx *gorm.DB, connName string, mTable MigrationTable) 
 		migrationJson, err := json.Marshal(migrationMap)
 		if err == nil {
 			if isMigrationStringExist {
-				tx.Table(tableName).
+				tx.Table(mTable.TableName()).
 					Where(keyField+" = ?", migrationKey).
 					Update(valueField, string(migrationJson))
 			} else {
-				mData[keyField] = migrationKey
-				mData[valueField] = string(migrationJson)
-				tx.Table(tableName).Create(mData)
+				mData[mTable.KeyField()] = migrationKey
+				mData[mTable.ValueField()] = string(migrationJson)
+				tx.Table(mTable.TableName()).Create(mData)
 			}
 		}
 	}
@@ -222,13 +222,13 @@ func (db *DB) RunSeeder(tx *gorm.DB, connName string, seedTable SeederTable) err
 		seedJson, err := json.Marshal(seedMap)
 		if err == nil {
 			if isSeedStringExist {
-				tx.Table(tableName).
+				tx.Table(seedTable.TableName()).
 					Where(keyField+" = ?", seederKey).
 					Update(valueField, string(seedJson))
 			} else {
-				seedData[keyField] = seederKey
-				seedData[valueField] = string(seedJson)
-				tx.Table(tableName).Create(seedData)
+				seedData[seedTable.KeyField()] = seederKey
+				seedData[seedTable.ValueField()] = string(seedJson)
+				tx.Table(seedTable.TableName()).Create(seedData)
 			}
 		}
 	}
