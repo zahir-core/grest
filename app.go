@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-const Version = "v0.0.0"
+const Version = "v0.0.1"
 
 func StartupMessage(addr string) {
 	addrPart := strings.Split(addr, ":")

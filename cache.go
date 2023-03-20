@@ -16,6 +16,7 @@ type CacheInterface interface {
 	Set(key string, val any, e ...time.Duration) error
 	Delete(key string) error
 	DeleteWithPrefix(prefix string) error
+	Invalidate(prefix string, keys ...string)
 	Clear() error
 }
 
@@ -130,6 +131,13 @@ func (c *Cache) DeleteWithPrefix(prefix string) error {
 		}
 	}
 	return nil
+}
+
+func (c *Cache) Invalidate(prefix string, keys ...string) {
+	for _, k := range keys {
+		c.Delete(prefix + "." + k)
+	}
+	go c.DeleteWithPrefix(prefix + "?")
 }
 
 func (c *Cache) Clear() error {

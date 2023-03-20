@@ -8,8 +8,6 @@ import (
 	"strings"
 )
 
-var FilePath = "docs/swagger.json"
-
 // The full Latest OpenAPI Specification is available on https://spec.openapis.org/oas/latest.html
 type OpenAPI struct {
 	OpenAPI           string             `json:"openapi,omitempty"`
@@ -207,12 +205,16 @@ func (o *OpenAPI) AddRoute(path, method string, op OpenAPIOperationInterface) {
 	o.AddPath(path, map[string]any{strings.ToLower(method): operationObject})
 }
 
-func (o *OpenAPI) Generate() error {
+func (o *OpenAPI) Generate(p ...string) error {
 	b, err := json.MarshalIndent(o, "", "  ")
 	if err != nil {
 		return NewError(http.StatusInternalServerError, err.Error())
 	}
-	err = os.WriteFile(FilePath, b, 0666)
+	path := "docs/openapi.json"
+	if len(p) > 0 {
+		path = p[0]
+	}
+	err = os.WriteFile(path, b, 0666)
 	if err != nil {
 		return NewError(http.StatusInternalServerError, err.Error())
 	}

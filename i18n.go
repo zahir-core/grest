@@ -4,8 +4,10 @@ import (
 	"strings"
 )
 
-// see: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Language
-const LangHeader = "Content-Language"
+// The Accept-Language request HTTP header indicates the natural language and locale that the client prefers.
+//
+// See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Language
+const LangHeader = "Accept-Language"
 
 type TranslatorInterface interface {
 	AddTranslation(lang string, messages map[string]string)

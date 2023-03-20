@@ -7,19 +7,27 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"io"
 	"net/http"
 
+	"github.com/cristalhq/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/hkdf"
 )
 
 var (
-	CryptoKey  = "key"
-	CryptoSalt = "salt"
+	CryptoKey  = "wAGyTpFQX5uKV3JInABXXEdpgFkQLPTf"
+	CryptoSalt = "0de0cda7d2dd4937a1c4f7ddc43c580f"
 	CryptoInfo = "info"
+	JWTKey     = "f4cac8b77a8d4cb5881fac72388bb226"
 )
 
 type CryptoInterface interface {
+	NewHash(text string, cost ...int) (string, error)
+	CompareHash(hashed, text string) error
+	NewJWT(claims any) (string, error)
+	ParseAndVerifyJWT(token string, claims any) error
 	Encrypt(text string) (string, error)
 	Decrypt(text string) (string, error)
 	GenerateKey() ([]byte, error)
@@ -28,16 +36,18 @@ type CryptoInterface interface {
 }
 
 type Crypto struct {
-	Key  string
-	Salt string
-	Info string
+	Key    string
+	Salt   string
+	Info   string
+	JWTKey string
 }
 
 func NewCrypto(keys ...string) *Crypto {
 	c := &Crypto{
-		Key:  CryptoKey,
-		Salt: CryptoSalt,
-		Info: CryptoInfo,
+		Key:    CryptoKey,
+		Salt:   CryptoSalt,
+		Info:   CryptoInfo,
+		JWTKey: JWTKey,
 	}
 	if len(keys) > 0 {
 		c.Key = keys[0]
@@ -48,7 +58,47 @@ func NewCrypto(keys ...string) *Crypto {
 	if len(keys) > 2 {
 		c.Info = keys[2]
 	}
+	if len(keys) > 3 {
+		c.JWTKey = keys[3]
+	}
 	return c
+}
+
+func (*Crypto) NewHash(text string, cost ...int) (string, error) {
+	hashCost := 10
+	if len(cost) > 0 {
+		hashCost = cost[0]
+	}
+	b, err := bcrypt.GenerateFromPassword([]byte(text), hashCost)
+	return string(b), err
+}
+
+func (*Crypto) CompareHash(hashed, text string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hashed), []byte(text))
+}
+
+func (c *Crypto) NewJWT(claims any) (string, error) {
+	signer, err := jwt.NewSignerHS(jwt.HS256, []byte(c.JWTKey))
+	if err != nil {
+		return "", err
+	}
+	token, err := jwt.NewBuilder(signer).Build(claims)
+	if err != nil {
+		return "", err
+	}
+	return token.String(), nil
+}
+
+func (c *Crypto) ParseAndVerifyJWT(token string, claims any) error {
+	verifier, err := jwt.NewVerifierHS(jwt.HS256, []byte(c.JWTKey))
+	if err != nil {
+		return err
+	}
+	t, err := jwt.Parse([]byte(token), verifier)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(t.Claims(), &claims)
 }
 
 func (c *Crypto) Encrypt(text string) (string, error) {
