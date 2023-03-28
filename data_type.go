@@ -428,6 +428,87 @@ func (n NullDateTime) IsZero() bool {
 	return n.Time.IsZero()
 }
 
+// NullUnixTime is a nullable date.
+// It supports SQL and JSON serialization.
+type NullUnixTime struct {
+	NullDateTime
+}
+
+// MarshalJSON implements json.Marshaler.
+// It will encode null if this NullUnixTime is null.
+func (n NullUnixTime) MarshalJSON() ([]byte, error) {
+	if !n.Valid {
+		return nullBytes, nil
+	}
+	return json.Marshal(n.Time.Unix())
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+// It supports a string that can be parsed to a time.Time.
+// Other input value will be considered null, not error.
+func (n *NullUnixTime) UnmarshalJSON(data []byte) error {
+	if bytes.Equal(data, nullBytes) {
+		n.Valid = false
+		return nil
+	}
+	val := int64(0)
+	if err := json.Unmarshal(data, &val); err == nil {
+		n.Time = time.Unix(val, 0)
+		n.Valid = val > 0
+	}
+	return nil
+}
+
+// GormDataType returns gorm common data type. This type is used for the field's column type.
+func (NullUnixTime) GormDataType() string {
+	return "INTEGER"
+}
+
+// GormDBDataType returns gorm DB data type based on the current using database.
+func (NullUnixTime) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+	switch db.Dialector.Name() {
+	case "sqlite":
+		return "INTEGER"
+	case "mysql":
+		return "BIGINT"
+	case "postgres":
+		return "bigint"
+	case "sqlserver":
+		return "INTEGER"
+	case "firebird":
+		return "INTEGER"
+	default:
+		return ""
+	}
+}
+
+// Scan implements sql.Scanner interface and scans value into Date
+func (n *NullUnixTime) Scan(value any) error {
+	if value == nil {
+		return nil
+	}
+
+	switch v := value.(type) {
+	case time.Time:
+		n.Time, n.Valid = v, true
+	case int64:
+		n.Time = time.Unix(v, 0)
+		n.Valid = v > 0
+	default:
+		return NewError(http.StatusInternalServerError, fmt.Sprintf("failed to scan value: %v", v))
+	}
+
+	return nil
+}
+
+// Value implements the driver Valuer interface.
+func (n NullUnixTime) Value() (driver.Value, error) {
+	if !n.Valid {
+		return nil, nil
+	}
+	return n.Time.Unix(), nil
+}
+
 // NullDate is a nullable date.
 // It supports SQL and JSON serialization.
 type NullDate struct {
@@ -435,7 +516,7 @@ type NullDate struct {
 }
 
 // MarshalJSON implements json.Marshaler.
-// It will encode null if this NullDateTime is null.
+// It will encode null if this NullDate is null.
 func (n NullDate) MarshalJSON() ([]byte, error) {
 	if !n.Valid {
 		return nullBytes, nil
@@ -518,7 +599,7 @@ func (n NullDate) Value() (driver.Value, error) {
 	return n.Time.Format("2006-01-02"), nil
 }
 
-// NullDate is a nullable date.
+// NullTime is a nullable time.
 // It supports SQL and JSON serialization.
 type NullTime struct {
 	NullString

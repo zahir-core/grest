@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/cristalhq/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -201,4 +202,50 @@ func (*Crypto) PKCS5Unpadding(encrypt []byte) ([]byte, error) {
 		return encrypt[:length], nil
 	}
 	return encrypt, NewError(http.StatusInternalServerError, "ciphertext is not a multiple of the block size, please use the correct key")
+}
+
+// RegisteredClaimJWT represents claims for JWT.
+// See: https://tools.ietf.org/html/rfc7519#section-4.1
+type RegisteredClaimJWT struct {
+	// ID claim provides a unique identifier for the JWT.
+	ID string `json:"jti,omitempty"`
+
+	// Audience claim identifies the recipients that the JWT is intended for.
+	Audience string `json:"aud,omitempty"`
+
+	// Issuer claim identifies the principal that issued the JWT.
+	Issuer string `json:"iss,omitempty"`
+
+	// Subject claim identifies the principal that is the subject of the JWT.
+	Subject string `json:"sub,omitempty"`
+
+	// IssuedAt claim identifies the time at which the JWT was issued.
+	// This claim can be used to determine the age of the JWT.
+	IssuedAt NullUnixTime `json:"iat,omitempty"`
+
+	// ExpiresAt claim identifies the expiration time on or after which the JWT MUST NOT be accepted for processing.
+	ExpiresAt NullUnixTime `json:"exp,omitempty"`
+
+	// NotBefore claim identifies the time before which the JWT MUST NOT be accepted for processing.
+	NotBefore NullUnixTime `json:"nbf,omitempty"`
+}
+
+// IsValidExpiresAt reports whether a token isn't expired at a given time.
+func (rc RegisteredClaimJWT) IsValidExpiresAt(now time.Time) bool {
+	return !rc.ExpiresAt.Valid || rc.ExpiresAt.Time.After(now)
+}
+
+// IsValidNotBefore reports whether a token isn't used before a given time.
+func (rc RegisteredClaimJWT) IsValidNotBefore(now time.Time) bool {
+	return !rc.NotBefore.Valid || rc.NotBefore.Time.Before(now)
+}
+
+// IsValidIssuedAt reports whether a token was created before a given time.
+func (rc RegisteredClaimJWT) IsValidIssuedAt(now time.Time) bool {
+	return !rc.IssuedAt.Valid || rc.IssuedAt.Time.Before(now)
+}
+
+// IsValidAt reports whether a token is valid at a given time.
+func (rc RegisteredClaimJWT) IsValidAt(now time.Time) bool {
+	return rc.IsValidExpiresAt(now) && rc.IsValidNotBefore(now) && rc.IsValidIssuedAt(now)
 }
