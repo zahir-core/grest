@@ -16,6 +16,7 @@ import (
 )
 
 type HttpClientInterface interface {
+	Debug()
 	AddHeader(key, value string)
 	AddMultipartBody(body any) error
 	AddUrlEncodedBody(body any) error
@@ -23,6 +24,7 @@ type HttpClientInterface interface {
 	AddXmlBody(body any) error
 	SetTimeout(timeout time.Duration)
 	Send() (*http.Response, error)
+	BodyResponseStr() string
 	UnmarshalJson(v any) error
 	UnmarshalXml(v any) error
 }
@@ -38,7 +40,7 @@ type HttpClient struct {
 	BodyResponse []byte
 }
 
-func NewHttpClient(method, url string) *HttpClient {
+func NewHttpClient(method, url string) HttpClientInterface {
 	return &HttpClient{Method: method, Url: url}
 }
 
@@ -237,10 +239,18 @@ func (c *HttpClient) Send() (*http.Response, error) {
 	return res, nil
 }
 
+func (c *HttpClient) BodyResponseStr() string {
+	return string(c.BodyResponse)
+}
+
 func (c *HttpClient) UnmarshalJson(v any) error {
 	return json.Unmarshal(c.BodyResponse, v)
 }
 
 func (c *HttpClient) UnmarshalXml(v any) error {
 	return xml.Unmarshal(c.BodyResponse, v)
+}
+
+func (c *HttpClient) Debug() {
+	c.IsDebug = true
 }

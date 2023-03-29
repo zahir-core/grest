@@ -12,11 +12,11 @@ import (
 )
 
 func TestHttpClientSimple(t *testing.T) {
-	expected := []byte("OK")
+	expected := "OK"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write(expected)
+		w.Write([]byte(expected))
 	}))
 	defer server.Close()
 
@@ -28,8 +28,8 @@ func TestHttpClientSimple(t *testing.T) {
 	if res.StatusCode != http.StatusOK {
 		t.Errorf("Expected StatusCode [%v], got [%v]", http.StatusOK, res.StatusCode)
 	}
-	if !reflect.DeepEqual(expected, c.BodyResponse) {
-		t.Errorf("Expected BodyResponse [%v], got [%v]", expected, c.BodyResponse)
+	if !reflect.DeepEqual(expected, c.BodyResponseStr()) {
+		t.Errorf("Expected BodyResponse [%v], got [%v]", expected, c.BodyResponseStr())
 	}
 }
 

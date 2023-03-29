@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/cristalhq/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
