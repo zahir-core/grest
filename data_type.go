@@ -77,10 +77,7 @@ func (n NullBool) Value() (driver.Value, error) {
 	if !n.Valid {
 		return nil, nil
 	}
-	if n.Bool {
-		return "1", nil
-	}
-	return "0", nil
+	return n.Bool, nil
 }
 
 // MarshalText implements encoding.TextMarshaler.
