@@ -475,7 +475,7 @@ func (NullUnixTime) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	case "firebird":
 		return "INTEGER"
 	default:
-		return ""
+		return "INTEGER"
 	}
 }
 
@@ -562,7 +562,7 @@ func (NullDate) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	case "firebird":
 		return "DATE"
 	default:
-		return ""
+		return "DATE"
 	}
 }
 
@@ -652,7 +652,7 @@ func (NullTime) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	case "firebird":
 		return "TIME"
 	default:
-		return ""
+		return "TIME"
 	}
 }
 
@@ -709,7 +709,7 @@ func (NullText) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	case "firebird":
 		return "BLOB SUB_TYPE TEXT"
 	default:
-		return ""
+		return "TEXT"
 	}
 }
 
@@ -797,7 +797,7 @@ func (NullJSON) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	case "firebird":
 		return "BLOB SUB_TYPE TEXT"
 	default:
-		return ""
+		return "TEXT"
 	}
 }
 
@@ -816,5 +816,10 @@ func (n *NullUUID) Val() string {
 
 // GormDataType returns gorm common data type. This type is used for the field's column type.
 func (NullUUID) GormDataType() string {
+	return "char(36)"
+}
+
+// GormDBDataType returns gorm DB data type based on the current using database.
+func (NullUUID) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	return "char(36)"
 }
