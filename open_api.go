@@ -10,16 +10,16 @@ import (
 
 // The full Latest OpenAPI Specification is available on https://spec.openapis.org/oas/latest.html
 type OpenAPI struct {
-	OpenAPI           string             `json:"openapi,omitempty"`
-	Info              OpenAPIInfo        `json:"info,omitempty"`
-	JsonSchemaDialect string             `json:"jsonSchemaDialect,omitempty"`
-	Servers           []map[string]any   `json:"servers,omitempty"`
-	Paths             map[string]any     `json:"paths,omitempty"`
-	Webhooks          map[string]any     `json:"webhooks,omitempty"`
-	Components        map[string]any     `json:"components,omitempty"`
-	Security          []map[string]any   `json:"security,omitempty"`
-	Tags              []map[string]any   `json:"tags,omitempty"`
-	ExternalDocs      OpenAPIExternalDoc `json:"externalDocs,omitempty"`
+	OpenAPI           string              `json:"openapi,omitempty"`
+	Info              OpenAPIInfo         `json:"info,omitempty"`
+	JsonSchemaDialect string              `json:"jsonSchemaDialect,omitempty"`
+	Servers           []map[string]any    `json:"servers,omitempty"`
+	Paths             map[string]MapSlice `json:"paths,omitempty"`
+	Webhooks          map[string]any      `json:"webhooks,omitempty"`
+	Components        map[string]any      `json:"components,omitempty"`
+	Security          []map[string]any    `json:"security,omitempty"`
+	Tags              []map[string]any    `json:"tags,omitempty"`
+	ExternalDocs      OpenAPIExternalDoc  `json:"externalDocs,omitempty"`
 }
 
 func (o *OpenAPI) SetVersion() {
@@ -52,24 +52,12 @@ func (o *OpenAPI) AddTag(tag map[string]any) {
 	}
 }
 
-func (o *OpenAPI) AddPath(key string, val any) {
+func (o *OpenAPI) AddPath(key, method string, operationObject any) {
 	if o.Paths != nil {
-		path, isPathExists := o.Paths[key]
-		p, pOk := path.(map[string]any)
-		v, vOk := val.(map[string]any)
-		if isPathExists && pOk && vOk {
-			for method, operation := range v {
-				_, isMethodExists := p[method]
-				if !isMethodExists {
-					p[method] = operation
-				}
-			}
-			o.Paths[key] = p
-		} else {
-			o.Paths[key] = val
-		}
+		path, _ := o.Paths[key]
+		o.Paths[key] = append(path, MapItem{method, operationObject})
 	} else {
-		o.Paths = map[string]any{key: val}
+		o.Paths = map[string]MapSlice{key: {MapItem{method, operationObject}}}
 	}
 }
 
@@ -202,7 +190,7 @@ func (o *OpenAPI) AddRoute(path, method string, op OpenAPIOperationInterface) {
 	if len(op.OpenAPIServer()) > 0 {
 		operationObject["servers"] = op.OpenAPIServer()
 	}
-	o.AddPath(path, map[string]any{strings.ToLower(method): operationObject})
+	o.AddPath(path, strings.ToLower(method), operationObject)
 }
 
 func (o *OpenAPI) Generate(p ...string) error {
