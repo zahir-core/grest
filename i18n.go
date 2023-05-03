@@ -12,6 +12,7 @@ const LangHeader = "Accept-Language"
 type TranslatorInterface interface {
 	AddTranslation(lang string, messages map[string]string)
 	GetTranslation(lang string) map[string]string
+	SupportedLanguage(lang string) string
 	Trans(lang, key string, params ...map[string]string) string
 }
 
@@ -42,8 +43,34 @@ func (t *Translator) GetTranslation(lang string) map[string]string {
 	return map[string]string{}
 }
 
+func (t Translator) SupportedLanguage(lang string) string {
+	lang = strings.Split(lang, ";")[0]
+	if lang == "" || lang == "*" {
+		lang = "en"
+	}
+	supportedLang := ""
+	langs := strings.Split(lang, ",")
+	for _, lg := range langs {
+		_, ok := t.i18n[lg]
+		if supportedLang == "" {
+			if ok {
+				supportedLang = lg
+			} else {
+				for k := range t.i18n {
+					if strings.HasPrefix(k, lg) {
+						supportedLang = k
+					}
+				}
+			}
+		}
+	}
+	return supportedLang
+}
+
 // Translate message data based on language and translation key
 func (t Translator) Trans(lang, key string, params ...map[string]string) string {
+	lang = t.SupportedLanguage(lang)
+
 	message := key
 	msg := map[string]string{}
 	if val, ok := t.i18n[lang]; ok {
