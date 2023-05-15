@@ -446,9 +446,10 @@ func (q *DBQuery) qsToCond(key, val string, fields map[string]map[string]any, ar
 	} else {
 		for k, v := range fields {
 			if strings.HasPrefix(key, k) {
-				cond["column1"] = k
-				fType, ok := v["type"].(string)
-				if ok && strings.Contains(strings.ToLower(fType), "json") {
+				cond["column1"], _ = v["db"].(string)
+				fType, _ := v["type"].(string)
+				cond["column1type"] = fType
+				if strings.Contains(strings.ToLower(fType), "json") {
 					cond["column1jsonKey"] = strings.Replace(key, k+".", "", 1)
 				}
 			}
@@ -501,6 +502,9 @@ func (q *DBQuery) qsToOptSQL(key string) string {
 func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 	where := strings.Builder{}
 
+	column1, _ := cond["column1"].(string)
+	column2, _ := cond["column2"].(string)
+
 	operator, _ := cond["operator"].(string)
 	if operator == "" {
 		operator = "="
@@ -509,12 +513,12 @@ func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 	isOperatorLIKE := strings.Contains(strings.ToUpper(operator), "LIKE")
 	isCaseInsensitive, _ := cond["isCaseInsensitive"].(bool)
 
-	column1, _ := cond["column1"].(string)
 	column1jsonKey, _ := cond["column1jsonKey"].(string)
 	column1type, _ := cond["column1type"].(string)
 	column1type = strings.ToLower(column1type)
 	column1isBool := strings.Contains(column1type, "bool")
 	column1isDateTime := strings.Contains(column1type, "date") || strings.Contains(column1type, "time")
+	column1isUuid := strings.Contains(column1type, "uuid")
 	if column1jsonKey != "" {
 		column1 = q.QuoteJSON(column1, column1jsonKey)
 	}
@@ -523,11 +527,11 @@ func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 		if column1jsonKey == "" && !strings.Contains(column1, " ") && !strings.Contains(column1, "(") {
 			column1 = q.DB.Statement.Quote(column1)
 		}
-		if isCaseInsensitive && !column1isDateTime {
-			column1 = "LOWER(" + column1 + ")"
+		if (column1isDateTime && isOperatorLIKE) || (column1isUuid && column2 == "") {
+			column1 = "CAST(" + column1 + " AS CHAR(36))"
 		}
-		if column1isDateTime && isOperatorLIKE {
-			column1 = "CAST(" + column1 + " AS CHAR)"
+		if isCaseInsensitive {
+			column1 = "LOWER(" + column1 + ")"
 		}
 		where.WriteString(column1)
 	}
@@ -552,7 +556,6 @@ func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 		where.WriteString(operator)
 	}
 
-	column2, _ := cond["column2"].(string)
 	column2jsonKey, _ := cond["column2jsonKey"].(string)
 	column2type, _ := cond["column2type"].(string)
 	column2type = strings.ToLower(column2type)
@@ -565,11 +568,11 @@ func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 		if column2jsonKey == "" && !strings.Contains(column2, " ") && !strings.Contains(column2, "(") {
 			column2 = q.DB.Statement.Quote(column2)
 		}
-		if isCaseInsensitive && !column2isDateTime {
-			column2 = "LOWER(" + column1 + ")"
-		}
 		if column2isDateTime && isOperatorLIKE {
-			column2 = "CAST(" + column2 + " AS CHAR)"
+			column2 = "CAST(" + column2 + " AS CHAR(36))"
+		}
+		if isCaseInsensitive {
+			column2 = "LOWER(" + column1 + ")"
 		}
 		where.WriteString(column2)
 	} else if isOperatorIN {
