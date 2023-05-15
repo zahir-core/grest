@@ -821,7 +821,12 @@ func (NullUUID) GormDataType() string {
 
 // GormDBDataType returns gorm DB data type based on the current using database.
 func (NullUUID) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	return "char(36)"
+	switch db.Dialector.Name() {
+	case "postgres":
+		return "uuid"
+	default:
+		return "char(36)"
+	}
 }
 
 // MapItem representation of one map item.
