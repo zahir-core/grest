@@ -325,7 +325,6 @@ func (q *DBQuery) SetJoin(db *gorm.DB, schema map[string]any, query url.Values) 
 				joins = append(joins, joinStr{Str: joinSQL.String(), Args: args})
 			}
 		}
-		sort.SliceStable(joins, func(i, j int) bool { return joins[i].Str < joins[j].Str })
 		for _, j := range joins {
 			db = db.Joins(j.Str, j.Args...)
 		}
