@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/go-playground/validator/v10"
 	"gorm.io/gorm"
 )
 
@@ -149,10 +149,12 @@ func (q *DBQuery) Find(schema map[string]any, qry ...url.Values) ([]map[string]a
 func (q *DBQuery) includeArray(schema map[string]any, rows []map[string]any) ([]map[string]any, error) {
 	includeArray := strings.Split(q.Query.Get(QueryInclude), ",")
 	if includeArray[0] != "" {
+		arrayFieldOrder, _ := schema["arrayFieldOrder"].([]string)
 		arrayFields, _ := schema["arrayFields"].(map[string]map[string]any)
 		for i, row := range rows {
 			if includeArray[0] == "all" {
-				for arrayKey, arrayField := range arrayFields {
+				for _, arrayKey := range arrayFieldOrder {
+					arrayField, _ := arrayFields[arrayKey]
 					arrayRows, err := q.getArrayRows(arrayKey, arrayField, row)
 					if err != nil {
 						return arrayRows, err
@@ -264,14 +266,16 @@ func (q *DBQuery) SetTable(db *gorm.DB, schema map[string]any, query url.Values)
 
 // SetJoin specify the join method when querying
 func (q *DBQuery) SetJoin(db *gorm.DB, schema map[string]any, query url.Values) *gorm.DB {
-	relations, _ := schema["relations"].(map[string]map[string]any)
-	if len(relations) > 0 {
+	relationOrder, _ := schema["relationOrder"].([]string)
+	if len(relationOrder) > 0 {
+		relations, _ := schema["relations"].(map[string]map[string]any)
 		type joinStr struct {
 			Str  string
 			Args []any
 		}
 		joins := []joinStr{}
-		for key, rel := range relations {
+		for _, key := range relationOrder {
+			rel, _ := relations[key]
 			joinType, _ := rel["type"].(string)
 			joinType = strings.ToUpper(joinType)
 			if !strings.HasSuffix(joinType, "JOIN") {
@@ -503,11 +507,14 @@ func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 
 	column1, _ := cond["column1"].(string)
 	column2, _ := cond["column2"].(string)
-
 	operator, _ := cond["operator"].(string)
 	if operator == "" {
 		operator = "="
 	}
+	arg, isValueExists := cond["value"]
+	argStr, _ := arg.(string)
+	isNullSQL := false
+
 	isOperatorIN := strings.Contains(strings.ToUpper(operator), "IN")
 	isOperatorLIKE := strings.Contains(strings.ToUpper(operator), "LIKE")
 	isCaseInsensitive, _ := cond["isCaseInsensitive"].(bool)
@@ -517,7 +524,8 @@ func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 	column1type = strings.ToLower(column1type)
 	column1isBool := strings.Contains(column1type, "bool")
 	column1isDateTime := strings.Contains(column1type, "date") || strings.Contains(column1type, "time")
-	column1isUuid := strings.Contains(column1type, "uuid")
+
+	isInvalidUUID := strings.Contains(column1type, "uuid") && argStr != "" && validator.New().Var(argStr, "uuid") != nil
 	if column1jsonKey != "" {
 		column1 = q.QuoteJSON(column1, column1jsonKey)
 	}
@@ -526,7 +534,7 @@ func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 		if column1jsonKey == "" && !strings.Contains(column1, " ") && !strings.Contains(column1, "(") {
 			column1 = q.DB.Statement.Quote(column1)
 		}
-		if (column1isDateTime && isOperatorLIKE) || (column1isUuid && column2 == "") {
+		if (column1isDateTime && isOperatorLIKE) || isInvalidUUID {
 			column1 = "CAST(" + column1 + " AS CHAR(36))"
 		}
 		if isCaseInsensitive {
@@ -535,9 +543,6 @@ func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 		where.WriteString(column1)
 	}
 
-	arg, isValueExists := cond["value"]
-	argStr, _ := arg.(string)
-	isNullSQL := false
 	if isValueExists && (arg == nil || strings.ToLower(argStr) == "null") {
 		isNullSQL = true
 		where.WriteString(" IS")
@@ -660,6 +665,7 @@ func (q *DBQuery) SetGroup(db *gorm.DB, schema map[string]any, query url.Values)
 // SetSelect specify fields that you want when querying
 func (q *DBQuery) SetSelect(db *gorm.DB, schema map[string]any, query url.Values) *gorm.DB {
 	selectedFields := []string{}
+	fieldOrder, _ := schema["fieldOrder"].([]string)
 	fields, _ := schema["fields"].(map[string]map[string]any)
 	querySelect := strings.Split(query.Get(QuerySelect), ",")
 	querySelect = append(querySelect, strings.Split(query.Get(QueryGroup), ",")...)
@@ -692,7 +698,8 @@ func (q *DBQuery) SetSelect(db *gorm.DB, schema map[string]any, query url.Values
 		}
 	}
 	if len(selectedFields) == 0 {
-		for k, f := range fields {
+		for _, k := range fieldOrder {
+			f, _ := fields[k]
 			field, ok := f["db"].(string)
 			isHide, _ := f["isHide"].(bool)
 			if ok && !isHide {
@@ -700,7 +707,6 @@ func (q *DBQuery) SetSelect(db *gorm.DB, schema map[string]any, query url.Values
 			}
 		}
 	}
-	sort.Strings(selectedFields)
 	return db.Select(strings.Join(selectedFields, ", "))
 }
 

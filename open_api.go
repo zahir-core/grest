@@ -55,9 +55,9 @@ func (o *OpenAPI) AddTag(tag map[string]any) {
 func (o *OpenAPI) AddPath(key, method string, operationObject any) {
 	if o.Paths != nil {
 		path, _ := o.Paths[key]
-		o.Paths[key] = append(path, MapItem{method, operationObject})
+		o.Paths[key] = append(path, map[string]any{"key": method, "value": operationObject})
 	} else {
-		o.Paths = map[string]MapSlice{key: {MapItem{method, operationObject}}}
+		o.Paths = map[string]MapSlice{key: {map[string]any{"key": method, "value": operationObject}}}
 	}
 }
 

@@ -14,11 +14,14 @@ type ModelInterface interface {
 	SetFields(any)
 	AddField(fieldKey string, fieldOpt map[string]any)
 	GetFields() map[string]map[string]any
+	GetFieldOrder() []string
 	AddArrayField(fieldKey string, fieldOpt map[string]any)
 	GetArrayFields() map[string]map[string]any
+	GetArrayFieldOrder() []string
 	AddGroup(fieldKey string, fieldName string)
 	GetGroups() map[string]string
-	AddRelation(joinType string, tableName any, tableAliasName string, conditions []map[string]any) map[string]any
+	AddRelation(joinType string, tableName any, tableAliasName string, conditions []map[string]any)
+	GetRelationOrder() []string
 	GetRelations() map[string]map[string]any
 	AddFilter(filter map[string]any)
 	GetFilters() []map[string]any
@@ -74,7 +77,8 @@ type Model struct {
 	// optKey, same as model struct tag + the following key :
 	// - dataType
 	// optValue, same as model struct tag value
-	Fields map[string]map[string]any `json:"-" gorm:"-"`
+	Fields     map[string]map[string]any `json:"-" gorm:"-"`
+	FieldOrder []string                  `json:"-" gorm:"-"`
 
 	// hold sql group by field data
 	Groups map[string]string `json:"-" gorm:"-"`
@@ -82,7 +86,8 @@ type Model struct {
 	// hold array fields schema and filter (based on relation) :
 	// ?arrayFields.0.field.id={field_id} > where exists (select 1 from array_table at where at.parent_id = parent.id and field_id = {field_id})
 	// ?arrayFields.*.field.id={field_id} > same as above but the array fields response also filtered
-	ArrayFields map[string]map[string]any `json:"-" gorm:"-"`
+	ArrayFields     map[string]map[string]any `json:"-" gorm:"-"`
+	ArrayFieldOrder []string                  `json:"-" gorm:"-"`
 
 	// described in the following pattern : map[fieldKey]map[optKey]optValue
 	// fieldKey: same as "tableAliasName" on "optKey"
@@ -92,7 +97,8 @@ type Model struct {
 	// - tableSchema : schema for dynamic "join sub query" based on client's query params
 	// - tableAliasName : table alias name
 	// - conditions : []map[string]any same as "Filters"
-	Relations map[string]map[string]any `json:"-" gorm:"-"`
+	Relations     map[string]map[string]any `json:"-" gorm:"-"`
+	RelationOrder []string                  `json:"-" gorm:"-"`
 
 	// described in the following pattern : []map[optKey]optValue
 	// optKey :
@@ -240,6 +246,7 @@ func (m *Model) AddField(fieldKey string, fieldOpt map[string]any) {
 	} else {
 		m.Fields = map[string]map[string]any{fieldKey: fieldOpt}
 	}
+	m.FieldOrder = append(m.FieldOrder, fieldKey)
 }
 
 // get model field, use SetFields to automatically setted by struct tag using SetFields, but you can add or override this. expected key :
@@ -261,6 +268,10 @@ func (m *Model) GetFields() map[string]map[string]any {
 	return m.Fields
 }
 
+func (m *Model) GetFieldOrder() []string {
+	return m.FieldOrder
+}
+
 // add array field to model if not exists
 func (m *Model) AddArrayField(fieldKey string, fieldOpt map[string]any) {
 	if m.ArrayFields != nil {
@@ -270,10 +281,15 @@ func (m *Model) AddArrayField(fieldKey string, fieldOpt map[string]any) {
 	} else {
 		m.ArrayFields = map[string]map[string]any{fieldKey: fieldOpt}
 	}
+	m.ArrayFieldOrder = append(m.ArrayFieldOrder, fieldKey)
 }
 
 func (m *Model) GetArrayFields() map[string]map[string]any {
 	return m.ArrayFields
+}
+
+func (m *Model) GetArrayFieldOrder() []string {
+	return m.ArrayFieldOrder
 }
 
 // add group to model if not exists
@@ -297,7 +313,7 @@ func (m *Model) GetGroups() map[string]string {
 //	tableName : column in the db (or raw subquery) to be joined or model schema (to auto generate sub query filtered based on client's filter)
 //	tableAliasName : table alias name on sql join, also used as relation key
 //	conditions : []map[string]any same as "Filters"
-func (m *Model) AddRelation(joinType string, tableName any, tableAliasName string, conditions []map[string]any) map[string]any {
+func (m *Model) AddRelation(joinType string, tableName any, tableAliasName string, conditions []map[string]any) {
 	relation := map[string]any{
 		"tableName":      tableName,
 		"tableAliasName": tableAliasName,
@@ -313,7 +329,7 @@ func (m *Model) AddRelation(joinType string, tableName any, tableAliasName strin
 	} else {
 		m.Relations = map[string]map[string]any{tableAliasName: relation}
 	}
-	return relation
+	m.RelationOrder = append(m.RelationOrder, tableAliasName)
 }
 
 // get model relation, expected key :
@@ -331,6 +347,10 @@ func (m *Model) AddRelation(joinType string, tableName any, tableAliasName strin
 //	}
 func (m *Model) GetRelations() map[string]map[string]any {
 	return m.Relations
+}
+
+func (m *Model) GetRelationOrder() []string {
+	return m.RelationOrder
 }
 
 // add model filter
@@ -382,16 +402,19 @@ func (m *Model) GetSorts() []map[string]any {
 
 func (m *Model) SetSchema(model ModelInterface) map[string]any {
 	return map[string]any{
-		"tableName":      model.TableName(),
-		"tableSchema":    model.TableSchema(),
-		"tableAliasName": model.TableAliasName(),
-		"fields":         model.GetFields(),
-		"arrayFields":    model.GetArrayFields(),
-		"groups":         model.GetGroups(),
-		"relations":      model.GetRelations(),
-		"filters":        model.GetFilters(),
-		"sorts":          model.GetSorts(),
-		"isFlat":         model.IsFlat(),
+		"tableName":       model.TableName(),
+		"tableSchema":     model.TableSchema(),
+		"tableAliasName":  model.TableAliasName(),
+		"fields":          model.GetFields(),
+		"fieldOrder":      model.GetFieldOrder(),
+		"arrayFields":     model.GetArrayFields(),
+		"arrayFieldOrder": model.GetArrayFieldOrder(),
+		"groups":          model.GetGroups(),
+		"relations":       model.GetRelations(),
+		"relationOrder":   model.GetRelationOrder(),
+		"filters":         model.GetFilters(),
+		"sorts":           model.GetSorts(),
+		"isFlat":          model.IsFlat(),
 	}
 }
 
