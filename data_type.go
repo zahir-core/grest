@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -799,6 +801,29 @@ func (NullJSON) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	default:
 		return "TEXT"
 	}
+}
+
+func isNullJSON(t reflect.Type) bool {
+	if t.Kind() == reflect.Ptr {
+		return isNullJSON(t.Elem())
+	}
+	if strings.HasSuffix(t.Name(), "NullJSON") {
+		return true
+	}
+	if t.Kind() == reflect.Struct {
+		for i := 0; i < t.NumField(); i++ {
+			field := t.Field(i)
+			fieldType := field.Type
+			if fieldType.Kind() == reflect.Struct {
+				if fieldType.Name() == "NullJSON" {
+					return true
+				} else {
+					return isNullJSON(fieldType)
+				}
+			}
+		}
+	}
+	return false
 }
 
 type NullUUID struct {

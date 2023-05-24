@@ -193,10 +193,14 @@ func (m *Model) SetFields(p any) {
 					m.AddArrayField(jsonTag, map[string]any{"schema": arraySchema, "filter": dbTag})
 				}
 			} else {
+				fieldType := field.Type.Name()
+				if isNullJSON(field.Type) {
+					fieldType = "NullJSON"
+				}
 				fieldOpt := map[string]any{
 					"db":      dbTag,
 					"as":      jsonTag,
-					"type":    field.Type.Name(),
+					"type":    fieldType,
 					"isHide":  isHide,
 					"isGroup": isGroup,
 				}

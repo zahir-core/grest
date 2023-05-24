@@ -1,6 +1,7 @@
 package grest
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -142,7 +143,52 @@ func (q *DBQuery) Find(schema map[string]any, qry ...url.Values) ([]map[string]a
 	if err != nil {
 		return rows, NewError(http.StatusInternalServerError, err.Error())
 	}
+	rows = q.fixDataType(schema, rows)
 	return q.includeArray(schema, rows)
+}
+
+// fixDataType from db
+func (q *DBQuery) fixDataType(schema map[string]any, rows []map[string]any) []map[string]any {
+	isNeedFiDataType := false
+	boolKeys := []string{}
+	jsonKeys := []string{}
+	fields, _ := schema["fields"].(map[string]map[string]any)
+	for k, f := range fields {
+		dataType, _ := f["type"].(string)
+		dataType = strings.ToLower(dataType)
+		if strings.Contains(dataType, "bool") {
+			isNeedFiDataType = true
+			boolKeys = append(boolKeys, k)
+		} else if strings.Contains(dataType, "json") {
+			isNeedFiDataType = true
+			jsonKeys = append(jsonKeys, k)
+		}
+	}
+	if isNeedFiDataType {
+		for i, row := range rows {
+			for k, v := range row {
+				for _, bk := range boolKeys {
+					if k == bk {
+						switch fmt.Sprintf("%v", v) {
+						case "1":
+							rows[i][k] = true
+						case "0":
+							rows[i][k] = false
+						}
+					}
+				}
+				for _, jk := range jsonKeys {
+					if k == jk {
+						err := json.Unmarshal([]byte(fmt.Sprintf("%v", v)), &v)
+						if err == nil {
+							rows[i][k] = v
+						}
+					}
+				}
+			}
+		}
+	}
+	return rows
 }
 
 // includeArray include array fields to rows
