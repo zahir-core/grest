@@ -144,7 +144,7 @@ func (o *OpenAPI) AddRoute(path, method string, op OpenAPIOperationInterface) {
 				delete(requestBody, k)
 			}
 		}
-		operationObject["requestBody"] = requestBody
+		operationObject["requestBody"] = map[string]any{"content": requestBody}
 	}
 
 	responses := op.OpenAPIResponses()

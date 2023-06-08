@@ -3,7 +3,9 @@ package grest
 import (
 	"encoding/json"
 	"reflect"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type ModelInterface interface {
@@ -30,7 +32,7 @@ type ModelInterface interface {
 	SetSchema(ModelInterface) map[string]any
 	GetSchema() map[string]any
 	OpenAPISchemaName() string
-	SetOpenAPISchema(ModelInterface) map[string]any
+	SetOpenAPISchema(any) map[string]any
 	GetOpenAPISchema() map[string]any
 	IsFlat() bool
 }
@@ -176,7 +178,7 @@ func (m *Model) SetFields(p any) {
 		if jsonTag != "" && jsonTag != "-" {
 			dbTag := field.Tag.Get("db")
 			dbTags := strings.Split(dbTag, ",")
-			isHide := len(dbTags) > 1 && dbTags[1] == "hide"
+			isHide := dbTag == "-" || (len(dbTags) > 1 && dbTags[1] == "hide")
 			isGroup := len(dbTags) > 1 && dbTags[1] == "group"
 			if isGroup {
 				m.AddGroup(jsonTag, dbTags[0])
@@ -430,13 +432,242 @@ func (m *Model) OpenAPISchemaName() string {
 	return ""
 }
 
-// todo
-func (m *Model) SetOpenAPISchema(model ModelInterface) map[string]any {
-	return map[string]any{}
-}
-
 func (m *Model) GetOpenAPISchema() map[string]any {
 	return m.SetOpenAPISchema(m)
+}
+
+func (m *Model) SetOpenAPISchema(p any) map[string]any {
+	openAPISchema := map[string]any{}
+	ptr := reflect.ValueOf(p)
+	t := ptr.Elem().Type()
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
+		if jsonTag != "" && jsonTag != "-" {
+			dbTag := field.Tag.Get("db")
+			dbTags := strings.Split(dbTag, ",")
+			isHide := dbTag == "-" || (len(dbTags) > 1 && dbTags[1] == "hide")
+			if !isHide {
+				isArray := field.Type.Kind() == reflect.Slice
+				if isArray {
+					gqs := m.callMethod(reflect.New(field.Type.Elem()), "GetOpenAPISchema", []reflect.Value{})
+					if len(gqs) > 0 {
+						openAPISchema[jsonTag] = map[string]any{"type": "array", "items": gqs[0].Interface()}
+					}
+				} else {
+					fieldType := field.Type.Name()
+					if isNullJSON(field.Type) {
+						fieldType = "NullJSON"
+					}
+					fieldOpt := m.getJSONSchema(fieldType, field.Tag)
+					// todo : if isNullJSON, override type and format based on NullJSON.Data struct
+					openAPISchema[jsonTag] = fieldOpt
+				}
+			}
+		}
+	}
+	flat, ok := p.(interface{ IsFlat() bool })
+	if ok {
+		if !flat.IsFlat() {
+			openAPISchema = m.nestedOpenAPISchema(openAPISchema)
+		}
+	}
+	return map[string]any{
+		"type":       "object",
+		"properties": openAPISchema,
+	}
+}
+
+// JSON Schema Spec : https://datatracker.ietf.org/doc/html/draft-bhutton-json-schema-validation-01
+//
+//	type: string               # null, boolean, string, integer, number, object, array
+//	format: string             # int32, int64, float, double, uuid, email, password, date, time, date-time, duration
+//	default: string            # default
+//	enum: [string]             # enum
+//	description: string        # description
+//	deprecated: boolean        # true
+//	multipleOf: number         # 1
+//	maximum: number            # 1
+//	exclusiveMaximum: boolean  # true
+//	minimum: number            # 1
+//	exclusiveMinimum: boolean  # true
+//	maxLength: integer         # 1
+//	minLength: integer         # 1
+//	pattern: string            # pattern
+//	maxItems: integer          # 1
+//	minItems: integer          # 1
+//	uniqueItems: boolean       # true
+//	maxProperties: integer     # 1
+//	minProperties: integer     # 1
+//	required: [string]         # array of field name
+//	writeOnly: boolean         # true
+//	readOnly: boolean          # true
+//	nullable: boolean          # true
+//	oneOf: [string]            # oneOf
+//	anyOf: [string]            # anyOf
+//	allOf: [string]            # allOf
+//	examples: [string]         # examples
+//
+//	NullBool field name :
+//		type: boolean
+//
+//	NullUUID field name :
+//		type: string
+//		format: uuid
+//
+//	NullString field name :
+//		type: string
+//
+//	object field name :
+//		type: object
+//		properties:
+//			NullString field name :
+//				type: string
+//
+//	array of string field name :
+//		type: array
+//		items:
+//			type: string
+//
+//	array of object field name :
+//		type: array
+//		items:
+//			type: object
+//			properties:
+//				NullString field name :
+//					type: string
+func (m *Model) getJSONSchema(typeName string, tag reflect.StructTag) map[string]any {
+	f := map[string]any{}
+	switch typeName {
+	case "NullBool":
+		f["type"] = "boolean"
+	case "NullInt64", "NullUnixTime", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "complex64", "complex128":
+		f["type"] = "integer"
+	case "NullFloat64", "float32", "float64":
+		f["type"] = "number"
+	case "NullString", "NullText", "NullDateTime", "NullDate", "NullTime", "NullUUID", "NullJSON", "string":
+		f["type"] = "string"
+	default:
+		f["type"] = "string"
+	}
+
+	switch typeName {
+	case "NullUnixTime":
+		f["example"] = time.Now().Unix()
+	case "NullDateTime":
+		f["format"] = "date-time"
+	case "NullDate":
+		f["format"] = "date"
+	case "NullTime":
+		f["format"] = "time"
+	case "NullUUID":
+		f["format"] = "uuid"
+	}
+
+	if tag.Get("note") != "" {
+		f["description"] = tag.Get("note")
+	}
+	for _, k := range []string{"title", "description", "default", "example"} {
+		if tag.Get(k) != "" {
+			f[k] = tag.Get(k)
+		}
+	}
+	for _, k := range []string{"deprecated", "exclusiveMaximum", "exclusiveMinimum", "uniqueItems", "writeOnly", "readOnly", "nullable"} {
+		if tag.Get(k) != "" {
+			f[k] = tag.Get(k) == "true"
+		}
+	}
+	for _, k := range []string{"enum", "oneOf", "anyOf", "allOf"} {
+		if tag.Get(k) != "" {
+			f[k] = strings.Split(tag.Get(k), ",")
+		}
+	}
+	for _, k := range []string{"multipleOf", "maximum", "minimum", "maxLength", "minLength", "maxItems", "minItems", "maxProperties", "minProperties"} {
+		if tag.Get(k) != "" {
+			v, err := strconv.ParseInt(tag.Get(k), 10, 64)
+			if err == nil {
+				f[k] = v
+			}
+		}
+	}
+	// parse go-playground validation tag to OAS validation
+	if tag.Get("validate") != "" {
+		for _, vk := range strings.Split(tag.Get("validate"), ",") {
+			k, v, _ := strings.Cut(vk, ",")
+			if k == "email" {
+				f["format"] = "email"
+			}
+			if k == "oneof" {
+				f["oneOf"] = strings.Split(v, " ")
+			}
+			if k == "max" {
+				max, err := strconv.ParseInt(v, 10, 64)
+				if err == nil {
+					if f["type"] == "string" {
+						f["maxLength"] = max
+					} else {
+						f["maximum"] = max
+					}
+				}
+			}
+			if k == "min" {
+				min, err := strconv.ParseInt(v, 10, 64)
+				if err == nil {
+					if f["type"] == "string" {
+						f["minLength"] = min
+					} else {
+						f["minimum"] = min
+					}
+				}
+			}
+		}
+	}
+	return f
+}
+
+func (m Model) nestedOpenAPISchema(flatSchema map[string]any) map[string]any {
+	nested := map[string]any{}
+	for k, v := range flatSchema {
+		keys := strings.Split(k, ".")
+		if len(keys) > 1 {
+			for i := len(keys) - 1; i >= 1; i-- {
+				if i == len(keys)-1 {
+					v = map[string]any{
+						keys[i]: v,
+					}
+				} else {
+					v = map[string]any{
+						keys[i]: map[string]any{
+							"type":       "object",
+							"properties": v,
+						},
+					}
+				}
+			}
+			nested[keys[0]] = map[string]any{
+				"type":       "object",
+				"properties": m.fillOpenAPISchema(nested, keys[0], v),
+			}
+		} else {
+			nested[k] = v
+		}
+	}
+	return nested
+}
+
+func (m Model) fillOpenAPISchema(data map[string]any, key string, val any) any {
+	d, exist := data[key].(map[string]any)
+	if exist {
+		p, ok := d["properties"].(map[string]any)
+		if ok {
+			temp, _ := val.(map[string]any)
+			for k, v := range temp {
+				p[k] = m.fillOpenAPISchema(p, k, v)
+			}
+			return p
+		}
+	}
+	return val
 }
 
 func (m *Model) IsFlat() bool {
