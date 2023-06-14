@@ -18,6 +18,7 @@ type ValidatorInterface interface {
 	RegisterTranslator(lang string, lt locales.Translator, regFunc func(v *validator.Validate, trans ut.Translator) error) error
 	IsValid(val any, tag string) bool
 	ValidateStruct(val any, lang string) error
+	TranslateError(err error, lang string) error
 }
 
 type Validator struct {
@@ -83,23 +84,30 @@ func (v *Validator) IsValid(val any, tag string) bool {
 }
 
 func (v *Validator) ValidateStruct(val any, lang string) error {
+	err := v.Struct(val)
+	if err != nil {
+		return v.TranslateError(err, lang)
+	}
+	return err
+}
+
+func (v *Validator) TranslateError(err error, lang string) error {
+	errs, ok := err.(validator.ValidationErrors)
+	if !ok {
+		return err
+	}
 	trans, ok := v.I18n[lang]
 	if !ok {
 		trans, _ = v.I18n["en"]
 	}
-	err := v.Struct(val)
-	if err != nil {
-		message := ""
-		detail := map[string]any{}
-		errs := err.(validator.ValidationErrors)
-		for _, e := range errs {
-			msg := e.Translate(trans)
-			if message == "" {
-				message = msg
-			}
-			detail[e.Field()] = map[string]any{e.Tag(): msg}
+	message := ""
+	detail := map[string]any{}
+	for _, e := range errs {
+		msg := e.Translate(trans)
+		if message == "" {
+			message = msg
 		}
-		return NewError(http.StatusBadRequest, message, detail)
+		detail[e.Field()] = map[string]any{e.Tag(): msg}
 	}
-	return err
+	return NewError(http.StatusBadRequest, message, detail)
 }
