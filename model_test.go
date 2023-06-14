@@ -169,11 +169,28 @@ func (m *TotalReview) GetOpenAPISchema() map[string]any {
 
 func expectedSchemaStr() string {
 	return `{
+  "arrayFieldOrder": [
+    "categories"
+  ],
   "arrayFields": {
     "categories": {
       "filter": "article.id={id}\u0026is_active=true",
       "schema": {
+        "arrayFieldOrder": null,
         "arrayFields": null,
+        "fieldOrder": [
+          "id",
+          "code",
+          "name",
+          "is_active",
+          "author.id",
+          "author.name",
+          "author.email",
+          "created.time",
+          "updated.time",
+          "deleted.time",
+          "article.id"
+        ],
         "fields": {
           "article.id": {
             "as": "article.id",
@@ -262,6 +279,10 @@ func expectedSchemaStr() string {
         ],
         "groups": null,
         "isFlat": false,
+        "relationOrder": [
+          "ac",
+          "u"
+        ],
         "relations": {
           "ac": {
             "conditions": [
@@ -300,6 +321,21 @@ func expectedSchemaStr() string {
       }
     }
   },
+  "fieldOrder": [
+    "id",
+    "title",
+    "content",
+    "author.id",
+    "author.name",
+    "author.email",
+    "detail",
+    "total_review",
+    "is_active",
+    "is_hidden",
+    "created_at",
+    "updated_at",
+    "deleted_at"
+  ],
   "fields": {
     "author.email": {
       "as": "author.email",
@@ -402,6 +438,10 @@ func expectedSchemaStr() string {
   ],
   "groups": null,
   "isFlat": false,
+  "relationOrder": [
+    "u",
+    "tr"
+  ],
   "relations": {
     "tr": {
       "conditions": [
@@ -413,7 +453,12 @@ func expectedSchemaStr() string {
       ],
       "tableAliasName": "tr",
       "tableName": {
+        "arrayFieldOrder": null,
         "arrayFields": null,
+        "fieldOrder": [
+          "id",
+          "total_review"
+        ],
         "fields": {
           "id": {
             "as": "id",
@@ -435,6 +480,7 @@ func expectedSchemaStr() string {
           "id": "r.article_id"
         },
         "isFlat": false,
+        "relationOrder": null,
         "relations": null,
         "sorts": null,
         "tableAliasName": "r",
@@ -442,7 +488,12 @@ func expectedSchemaStr() string {
         "tableSchema": null
       },
       "tableSchema": {
+        "arrayFieldOrder": null,
         "arrayFields": null,
+        "fieldOrder": [
+          "id",
+          "total_review"
+        ],
         "fields": {
           "id": {
             "as": "id",
@@ -464,6 +515,7 @@ func expectedSchemaStr() string {
           "id": "r.article_id"
         },
         "isFlat": false,
+        "relationOrder": null,
         "relations": null,
         "sorts": null,
         "tableAliasName": "r",
