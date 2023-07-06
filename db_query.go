@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+	"golang.org/x/exp/slices"
 	"gorm.io/gorm"
 )
 
@@ -101,6 +102,13 @@ var (
 	// ex: /contacts?$include=all                                => include all array fields
 	// ex: /contacts/{id}                                        => same as /contacts?id={id}&$include=all
 	QueryInclude = "$include"
+	// exclude query params setting
+	// for First method and Find method, by default query for all fields defined in struct is executed
+	// except for fields that explicitly hide by db:"-,hide" struct tags
+	// to exclude some fields from executed in query you can hide it using QueryExclude
+	// it can be setted by multiple fields, separated by comma
+	// ex: /contacts?$exclude=families,friends,phones            => exclude fields: families, friends, and phones
+	QueryExclude = "$exclude"
 	QueryDbField = "$db_field"
 )
 
@@ -744,7 +752,11 @@ func (q *DBQuery) SetSelect(db *gorm.DB, schema map[string]any, query url.Values
 		}
 	}
 	if len(selectedFields) == 0 {
+		queryExclude := strings.Split(query.Get(QueryExclude), ",")
 		for _, k := range fieldOrder {
+			if slices.Contains(queryExclude, k) {
+				continue
+			}
 			f, _ := fields[k]
 			field, ok := f["db"].(string)
 			isHide, _ := f["isHide"].(bool)
