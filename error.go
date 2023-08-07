@@ -7,14 +7,6 @@ import (
 	"strings"
 )
 
-type ErrorInterface interface {
-	Error() string
-	StatusCode() int
-	Body() map[string]any
-	Trace() []map[string]any
-	TraceSimple() map[string]string
-}
-
 // Error is an implementation of error with trace & other detail.
 type Error struct {
 	Code    int

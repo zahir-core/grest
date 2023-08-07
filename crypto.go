@@ -23,18 +23,6 @@ var (
 	JWTKey     = "f4cac8b77a8d4cb5881fac72388bb226"
 )
 
-type CryptoInterface interface {
-	NewHash(text string, cost ...int) (string, error)
-	CompareHash(hashed, text string) error
-	NewJWT(claims any) (string, error)
-	ParseAndVerifyJWT(token string, claims any) error
-	Encrypt(text string) (string, error)
-	Decrypt(text string) (string, error)
-	GenerateKey() ([]byte, error)
-	PKCS5Padding(ciphertext []byte, blockSize int) []byte
-	PKCS5Unpadding(encrypt []byte) ([]byte, error)
-}
-
 type Crypto struct {
 	Key    string
 	Salt   string

@@ -4,17 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
 )
-
-type TelegramInterface interface {
-	AddMessage(text string)
-	AddAttachment(file *multipart.FileHeader)
-	Send() error
-}
 
 type Telegram struct {
 	BaseURL     string
@@ -154,7 +147,7 @@ func (t *Telegram) Send() error {
 	}
 	defer res.Body.Close()
 	if res.StatusCode < 200 || res.StatusCode >= 400 {
-		b, err := ioutil.ReadAll(res.Body)
+		b, err := io.ReadAll(res.Body)
 		if err != nil {
 			return NewError(http.StatusInternalServerError, err.Error())
 		}

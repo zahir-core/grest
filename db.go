@@ -10,20 +10,10 @@ import (
 	"gorm.io/gorm"
 )
 
-type DBInterface interface {
-	RegisterConn(connName string, conn *gorm.DB)
-	Conn(connName string) (*gorm.DB, error)
-	Close()
-	RegisterTable(connName string, t Table) error
-	MigrateTable(tx *gorm.DB, connName string, mTable MigrationTable) error
-	RegisterSeeder(connName, seederKey string, seederHandler SeederHandler) error
-	RunSeeder(tx *gorm.DB, connName string, seedTable SeederTable) error
-}
-
 type DB struct {
 	Conns      map[string]*gorm.DB
 	Migrations map[string]map[string]Table
-	Seeders    map[string]map[string]SeederHandler
+	Seeders    map[string]map[string]any
 }
 
 type Table interface {
@@ -45,8 +35,6 @@ type SeederTable interface {
 	SettingTable
 	SeederKey() string
 }
-
-type SeederHandler func(db *gorm.DB) error
 
 func NewMockDB() (*gorm.DB, sqlmock.Sqlmock, error) {
 	db, mock, err := sqlmock.New()
@@ -80,6 +68,19 @@ func (db *DB) Conn(connName string) (*gorm.DB, error) {
 		return conn, nil
 	}
 	return nil, NewError(http.StatusInternalServerError, "DB connection "+connName+" is not found")
+}
+
+func (db *DB) CloseConn(connName string) error {
+	conn, ok := db.Conns[connName]
+	if ok {
+		dbSQL, err := conn.DB()
+		if err == nil {
+			dbSQL.Close()
+		}
+		delete(db.Conns, connName)
+		return err
+	}
+	return NewError(http.StatusInternalServerError, "DB connection "+connName+" is not found")
 }
 
 func (db *DB) Close() {
@@ -172,18 +173,18 @@ func (db *DB) MigrateTable(tx *gorm.DB, connName string, mTable MigrationTable) 
 	return nil
 }
 
-func (db *DB) RegisterSeeder(connName, seederKey string, seederHandler SeederHandler) error {
+func (db *DB) RegisterSeeder(connName, seederKey string, seederHandler any) error {
 	sh, ok := db.Seeders[connName]
 	if ok {
 		sh[seederKey] = seederHandler
 	} else {
-		sh = map[string]SeederHandler{seederKey: seederHandler}
+		sh = map[string]any{seederKey: seederHandler}
 	}
 
 	if db.Seeders != nil {
 		db.Seeders[connName] = sh
 	} else {
-		db.Seeders = map[string]map[string]SeederHandler{connName: sh}
+		db.Seeders = map[string]map[string]any{connName: sh}
 	}
 
 	return nil
@@ -208,13 +209,24 @@ func (db *DB) RunSeeder(tx *gorm.DB, connName string, seedTable SeederTable) err
 		json.Unmarshal([]byte(seedJsonString), &seedMap)
 	}
 
-	registeredSeeds, isRegisteredSeedExist := db.Seeders[connName]
-	if isRegisteredSeedExist {
-		for key, runSeeder := range registeredSeeds {
+	registeredSeeders, isRegisteredSeederExist := db.Seeders[connName]
+	if isRegisteredSeederExist {
+		for key, seeder := range registeredSeeders {
 			if _, sdOK := seedMap[key]; !sdOK {
-				err := runSeeder(tx)
-				if err != nil {
-					return NewError(http.StatusInternalServerError, err.Error())
+				seederWithTx, ok := seeder.(func(db *gorm.DB) error)
+				if ok {
+					err := seederWithTx(tx)
+					if err != nil {
+						return NewError(http.StatusInternalServerError, err.Error())
+					}
+				} else {
+					seeder, ok := seeder.(func() error)
+					if ok {
+						err := seeder()
+						if err != nil {
+							return NewError(http.StatusInternalServerError, err.Error())
+						}
+					}
 				}
 				seedMap[key] = true
 			}

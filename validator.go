@@ -11,16 +11,6 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-type ValidatorInterface interface {
-	New()
-	ValidateTagNamer(fld reflect.StructField) string
-	ValidateValuer(field reflect.Value) any
-	RegisterTranslator(lang string, lt locales.Translator, regFunc func(v *validator.Validate, trans ut.Translator) error) error
-	IsValid(val any, tag string) bool
-	ValidateStruct(val any, lang string) error
-	TranslateError(err error, lang string) error
-}
-
 type Validator struct {
 	*validator.Validate
 	I18n map[string]ut.Translator
