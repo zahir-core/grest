@@ -435,7 +435,7 @@ func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any, query url.Values)
 		if valSearch.Len() > 0 {
 			valSearchStr := valSearch.String()
 			orVal, isOrValExists := query[QueryOr]
-			isSearchValExists := !isOrValExists
+			isSearchValExists := isOrValExists
 			if !isSearchValExists {
 				for _, ov := range orVal {
 					if ov == valSearchStr {
