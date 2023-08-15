@@ -23,6 +23,7 @@ var (
 	JWTKey     = "f4cac8b77a8d4cb5881fac72388bb226"
 )
 
+// Crypto is a crypto utility for managing cryptographic operations.
 type Crypto struct {
 	Key    string
 	Salt   string
@@ -30,6 +31,7 @@ type Crypto struct {
 	JWTKey string
 }
 
+// NewCrypto initializes a new Crypto instance with optional key values.
 func NewCrypto(keys ...string) *Crypto {
 	c := &Crypto{
 		Key:    CryptoKey,
@@ -52,6 +54,7 @@ func NewCrypto(keys ...string) *Crypto {
 	return c
 }
 
+// NewHash generates a new hash using bcrypt with an optional cost.
 func (*Crypto) NewHash(text string, cost ...int) (string, error) {
 	hashCost := 10
 	if len(cost) > 0 {
@@ -61,10 +64,12 @@ func (*Crypto) NewHash(text string, cost ...int) (string, error) {
 	return string(b), err
 }
 
+// CompareHash compares a hashed value with its plain text counterpart.
 func (*Crypto) CompareHash(hashed, text string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashed), []byte(text))
 }
 
+// NewJWT creates a new JSON Web Token.
 func (c *Crypto) NewJWT(claims any) (string, error) {
 	signer, err := jwt.NewSignerHS(jwt.HS256, []byte(c.JWTKey))
 	if err != nil {
@@ -77,6 +82,7 @@ func (c *Crypto) NewJWT(claims any) (string, error) {
 	return token.String(), nil
 }
 
+// ParseAndVerifyJWT parses and verifies a JSON Web Token.
 func (c *Crypto) ParseAndVerifyJWT(token string, claims any) error {
 	verifier, err := jwt.NewVerifierHS(jwt.HS256, []byte(c.JWTKey))
 	if err != nil {
@@ -89,6 +95,7 @@ func (c *Crypto) ParseAndVerifyJWT(token string, claims any) error {
 	return json.Unmarshal(t.Claims(), &claims)
 }
 
+// Encrypt encrypts a given text using AES in CBC mode.
 func (c *Crypto) Encrypt(text string) (string, error) {
 	key, err := c.GenerateKey()
 	if err != nil {
@@ -126,6 +133,7 @@ func (c *Crypto) Encrypt(text string) (string, error) {
 	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
+// Decrypt decrypts an AES-encrypted text.
 func (c *Crypto) Decrypt(text string) (string, error) {
 	ciphertext, err := base64.StdEncoding.DecodeString(text)
 	if err != nil {
@@ -158,6 +166,7 @@ func (c *Crypto) Decrypt(text string) (string, error) {
 	return string(plaintext), err
 }
 
+// GenerateKey generates a cryptographic key using HKDF.
 func (c *Crypto) GenerateKey() ([]byte, error) {
 	if len(c.Key) == 0 {
 		return nil, NewError(http.StatusInternalServerError, "key cannot be empty")
@@ -176,12 +185,14 @@ func (c *Crypto) GenerateKey() ([]byte, error) {
 	return key, nil
 }
 
+// PKCS5Padding adds PKCS5-style padding to a block of bytes.
 func (*Crypto) PKCS5Padding(ciphertext []byte, blockSize int) []byte {
 	padding := blockSize - len(ciphertext)%blockSize
 	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
 	return append(ciphertext, padtext...)
 }
 
+// PKCS5Unpadding removes PKCS5-style padding from a block of bytes.
 func (*Crypto) PKCS5Unpadding(encrypt []byte) ([]byte, error) {
 	padding := encrypt[len(encrypt)-1]
 	length := len(encrypt) - int(padding)

@@ -9,11 +9,12 @@ import (
 // See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Language
 const LangHeader = "Accept-Language"
 
+// Translator handles translation of messages based on language keys.
 type Translator struct {
 	i18n map[string]map[string]string
 }
 
-// AddTranslation add translation data based on language key
+// AddTranslation adds translation data for a specific language.
 func (t *Translator) AddTranslation(lang string, messages map[string]string) {
 	if t.i18n == nil {
 		t.i18n = map[string]map[string]string{}
@@ -28,7 +29,7 @@ func (t *Translator) AddTranslation(lang string, messages map[string]string) {
 	}
 }
 
-// GetTranslation get translation data based on language key
+// GetTranslation retrieves translation data for a specific language.
 func (t *Translator) GetTranslation(lang string) map[string]string {
 	if msg, ok := t.i18n[lang]; ok {
 		return msg
@@ -36,6 +37,7 @@ func (t *Translator) GetTranslation(lang string) map[string]string {
 	return map[string]string{}
 }
 
+// SupportedLanguage determines the most appropriate supported language based on client's preference.
 func (t Translator) SupportedLanguage(lang string) string {
 	lang = strings.Split(lang, ";")[0]
 	if lang == "" || lang == "*" {
@@ -60,7 +62,7 @@ func (t Translator) SupportedLanguage(lang string) string {
 	return supportedLang
 }
 
-// Translate message data based on language and translation key
+// Trans translates a message based on the language and translation key, with optional parameter replacement.
 func (t Translator) Trans(lang, key string, params ...map[string]string) string {
 	lang = t.SupportedLanguage(lang)
 

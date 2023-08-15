@@ -5,16 +5,14 @@ import (
 	"strings"
 )
 
+// Version is the current version of the GREST.
 const Version = "v0.0.1"
 
+// StartupMessage generates and prints the startup message for the server.
 func StartupMessage(addr string) {
-	addrPart := strings.Split(addr, ":")
-	addr = "127.0.0.1"
-	if addrPart[0] != "" && addrPart[0] != "0.0.0.0" {
-		addr = addrPart[0]
-	}
-	if len(addrPart) > 1 {
-		addr = addr + ":" + addrPart[1]
+	host, port, _ := strings.Cut(addr, ":")
+	if host == "0.0.0.0" {
+		host = "127.0.0.1"
 	}
 
 	msg := strings.Builder{}
@@ -81,7 +79,7 @@ func StartupMessage(addr string) {
 
 	msg.WriteString("\n")
 	msg.WriteString(`http server listening on `)
-	msg.WriteString(Fmt("http://"+addr, FmtHiGreen))
+	msg.WriteString(Fmt("http://"+host+":"+port, FmtHiGreen))
 	msg.WriteString("\n")
 
 	fmt.Fprintln(FmtStdout, msg.String())

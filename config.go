@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// LoadEnv loads environment variable values into corresponding variables.
+// It takes a 'key' as the environment variable name and a 'value' as a pointer to the variable
+// where the environment variable's value will be assigned.
 func LoadEnv(key string, value any) {
 	val := reflect.ValueOf(value)
 	if val.Kind() != reflect.Ptr {

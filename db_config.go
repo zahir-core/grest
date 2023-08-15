@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// DBConfig represents the configuration for a database connection.
 type DBConfig struct {
 	Driver   string
 	Host     string
@@ -25,6 +26,7 @@ type DBConfig struct {
 	OtherParams map[string]string
 }
 
+// DSN generates the Data Source Name (DSN) for the database connection.
 func (d *DBConfig) DSN() string {
 	switch d.Driver {
 	case "mysql":
@@ -44,8 +46,13 @@ func (d *DBConfig) DSN() string {
 	}
 }
 
-// https://github.com/go-sql-driver/mysql#dsn-data-source-name
-// example : "user:pass@tcp(127.0.0.1:3306)/dbname?parseTime=true&loc=Asia/Jakarta"
+// MySqlDSN generates the MySQL-specific DSN.
+//
+// Reference: https://github.com/go-sql-driver/mysql#dsn-data-source-name
+//
+// example:
+//
+//	user:pass@tcp(127.0.0.1:3306)/dbname?parseTime=true&loc=Asia/Jakarta
 func (d *DBConfig) MySqlDSN() string {
 	var s strings.Builder
 
@@ -91,8 +98,13 @@ func (d *DBConfig) MySqlDSN() string {
 	return s.String()
 }
 
-// https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PARAMKEYWORDS
-// example: "host=localhost port=9920 user=postgres password=postgres dbname=postgres sslmode=disable TimeZone=Asia/Jakarta"
+// PostgreSqlDSN generates the PostgreSQL-specific DSN.
+//
+// Reference: https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PARAMKEYWORDS
+//
+// example:
+//
+//	host=localhost port=9920 user=postgres password=postgres dbname=postgres sslmode=disable TimeZone=Asia/Jakarta
 func (d *DBConfig) PostgreSqlDSN() string {
 	var s strings.Builder
 
@@ -133,6 +145,7 @@ func (d *DBConfig) PostgreSqlDSN() string {
 	return s.String()
 }
 
+// Helper function to write a parameter key-value pair to the DSN string.
 func (*DBConfig) writeParam(s *strings.Builder, key, value string) {
 	s.WriteByte(' ')
 	s.WriteString(key)
@@ -140,8 +153,13 @@ func (*DBConfig) writeParam(s *strings.Builder, key, value string) {
 	s.WriteString(value)
 }
 
-// https://github.com/denisenkom/go-mssqldb#connection-parameters-and-dsn
-// example: "sqlserver://username:password@localhost:9930?database=gorm"
+// SqlServerDSN generates the SQL Server-specific DSN.
+//
+// Reference: https://github.com/denisenkom/go-mssqldb#connection-parameters-and-dsn
+//
+// example:
+//
+//	sqlserver://username:password@localhost:9930?database=gorm
 func (d *DBConfig) SqlServerDSN() string {
 	var s strings.Builder
 
@@ -181,8 +199,13 @@ func (d *DBConfig) SqlServerDSN() string {
 	return s.String()
 }
 
-// https://github.com/nakagami/firebirdsql#connection-string
-// example: "SYSDBA:masterkey@127.0.0.1:3050/path/to/db_file_or_alias?charset=utf8"
+// FirebirdDSN generates the Firebird-specific DSN.
+//
+// Reference: https://github.com/nakagami/firebirdsql#connection-string
+//
+// example:
+//
+//	SYSDBA:masterkey@127.0.0.1:3050/path/to/db_file_or_alias?charset=utf8
 func (d *DBConfig) FirebirdDSN() string {
 	var s strings.Builder
 
@@ -225,8 +248,13 @@ func (d *DBConfig) FirebirdDSN() string {
 	return s.String()
 }
 
-// https://github.com/ClickHouse/clickhouse-go#dsn
-// example: "tcp://localhost:9000?database=gorm&username=gorm&password=gorm&read_timeout=10&write_timeout=20"
+// ClickhouseDSN generates the ClickHouse-specific DSN.
+//
+// Reference: https://github.com/ClickHouse/clickhouse-go#dsn
+//
+// example:
+//
+//	tcp://localhost:9000?database=gorm&username=gorm&password=gorm&read_timeout=10&write_timeout=20
 func (d *DBConfig) ClickhouseDSN() string {
 	var s strings.Builder
 
@@ -265,6 +293,7 @@ func (d *DBConfig) ClickhouseDSN() string {
 	return s.String()
 }
 
+// SqliteDSN generates the SQLite-specific DSN.
 func (d *DBConfig) SqliteDSN() string {
 	return d.DbName
 }

@@ -11,11 +11,13 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+// Validator struct wraps the validator.Validate and provides additional methods for validation.
 type Validator struct {
 	*validator.Validate
 	I18n map[string]ut.Translator
 }
 
+// New initializes a new instance of the Validator.
 func (v *Validator) New() {
 	v.Validate = validator.New()
 	v.RegisterTagNameFunc(v.ValidateTagNamer)
@@ -33,14 +35,16 @@ func (v *Validator) New() {
 	)
 }
 
+// ValidateTagNamer returns the validation tag name for a struct field.
 func (*Validator) ValidateTagNamer(fld reflect.StructField) string {
-	name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
+	name, _, _ := strings.Cut(fld.Tag.Get("json"), ",")
 	if name == "-" {
 		return ""
 	}
 	return name
 }
 
+// ValidateValuer attempts to retrieve the value for validation from a Valuer interface.
 func (*Validator) ValidateValuer(field reflect.Value) any {
 	if valuer, ok := field.Interface().(driver.Valuer); ok {
 		val, err := valuer.Value()
@@ -51,6 +55,7 @@ func (*Validator) ValidateValuer(field reflect.Value) any {
 	return nil
 }
 
+// RegisterTranslator registers a translator for a specific language and associates it with the Validator instance.
 func (v *Validator) RegisterTranslator(lang string, lt locales.Translator, regFunc func(v *validator.Validate, trans ut.Translator) error) error {
 	trans, _ := ut.New(lt, lt).GetTranslator(lang)
 	err := regFunc(v.Validate, trans)
@@ -65,6 +70,7 @@ func (v *Validator) RegisterTranslator(lang string, lt locales.Translator, regFu
 	return nil
 }
 
+// IsValid checks if a value is valid based on a validation tag.
 func (v *Validator) IsValid(val any, tag string) bool {
 	err := v.Var(val, tag)
 	if err != nil {
@@ -73,6 +79,7 @@ func (v *Validator) IsValid(val any, tag string) bool {
 	return true
 }
 
+// ValidateStruct validates a struct and returns an error with translated validation messages.
 func (v *Validator) ValidateStruct(val any, lang string) error {
 	err := v.Struct(val)
 	if err != nil {
@@ -81,6 +88,7 @@ func (v *Validator) ValidateStruct(val any, lang string) error {
 	return err
 }
 
+// TranslateError translates validation errors and creates an error instance with translated details.
 func (v *Validator) TranslateError(err error, lang string) error {
 	errs, ok := err.(validator.ValidationErrors)
 	if !ok {

@@ -7,17 +7,20 @@ import (
 	"strings"
 )
 
+// JSONSeparator defines separators for flattening JSON keys.
 type JSONSeparator struct {
 	Before string
 	After  string
 }
 
+// JSON is a struct that handles JSON data manipulation.
 type JSON struct {
 	Data       any
 	IsMerge    bool
 	IsRootOnly bool
 }
 
+// NewJSON creates a new JSON instance with provided data and optional options.
 func NewJSON(data any, isKeepOriginalData ...bool) JSON {
 	var v any
 	var isMerge bool
@@ -45,6 +48,7 @@ func NewJSON(data any, isKeepOriginalData ...bool) JSON {
 	return JSON{Data: v, IsMerge: isMerge}
 }
 
+// Marshal converts JSON data to a JSON byte slice.
 func (j JSON) Marshal() ([]byte, error) {
 	b, err := json.Marshal(j.Data)
 	if err != nil {
@@ -53,6 +57,7 @@ func (j JSON) Marshal() ([]byte, error) {
 	return b, nil
 }
 
+// MarshalIndent converts JSON data to an indented JSON byte slice.
 func (j JSON) MarshalIndent(indent string) ([]byte, error) {
 	b, err := json.MarshalIndent(j.Data, "", indent)
 	if err != nil {
@@ -61,6 +66,7 @@ func (j JSON) MarshalIndent(indent string) ([]byte, error) {
 	return b, nil
 }
 
+// Unmarshal decodes JSON data to a provided target structure.
 func (j JSON) Unmarshal(v any) error {
 	data, err := j.Marshal()
 	if err != nil {
@@ -73,6 +79,7 @@ func (j JSON) Unmarshal(v any) error {
 	return nil
 }
 
+// ToFlat converts nested JSON structures to flattened form using a separator.
 func (j JSON) ToFlat(separator ...JSONSeparator) JSON {
 	sep := JSONSeparator{Before: "."}
 	if len(separator) > 0 {
@@ -107,6 +114,7 @@ func (j JSON) ToFlat(separator ...JSONSeparator) JSON {
 	return JSON{Data: j.Data}
 }
 
+// ToFlatMap recursively flattens a nested JSON map structure.
 func (j JSON) ToFlatMap(flatMap map[string]any, data any, sep JSONSeparator, isTop bool, pref ...string) {
 	prefix := ""
 	if len(pref) > 0 {
@@ -130,6 +138,7 @@ func (j JSON) ToFlatMap(flatMap map[string]any, data any, sep JSONSeparator, isT
 	}
 }
 
+// JoinKey joins JSON keys using a separator to create a new key.
 func (j JSON) JoinKey(prefix, key string, sep JSONSeparator, isTop bool) string {
 	newKey := prefix
 
@@ -142,6 +151,7 @@ func (j JSON) JoinKey(prefix, key string, sep JSONSeparator, isTop bool) string 
 	return newKey
 }
 
+// ToStructured converts JSON data to a structured form using a separator.
 func (j JSON) ToStructured(separator ...JSONSeparator) JSON {
 	sep := JSONSeparator{Before: "."}
 	if len(separator) > 0 {
@@ -171,6 +181,7 @@ func (j JSON) ToStructured(separator ...JSONSeparator) JSON {
 	return JSON{Data: j.Data}
 }
 
+// ToStructuredMap converts nested JSON data to a structured map using a separator.
 func (j JSON) ToStructuredMap(m map[string]any, sep JSONSeparator) map[string]any {
 	nested := map[string]any{}
 	for k, v := range m {
@@ -198,6 +209,7 @@ func (j JSON) ToStructuredMap(m map[string]any, sep JSONSeparator) map[string]an
 	return nested
 }
 
+// FillMap fills a map with nested keys and values.
 func (j JSON) FillMap(data map[string]any, key string, val any) any {
 	d, exist := data[key].(map[string]any)
 	if exist {

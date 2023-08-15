@@ -3,7 +3,7 @@ package grest
 import (
 	"encoding/json"
 	"encoding/xml"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -141,7 +141,7 @@ func TestHttpClientWithJsonBodyRequest(t *testing.T) {
 			t.Errorf("Expected Content-Type [%v], got [%v]", expectedContentType, contentType)
 		}
 
-		body, err := ioutil.ReadAll(req.Body)
+		body, err := io.ReadAll(req.Body)
 		defer req.Body.Close()
 		if err != nil {
 			t.Errorf("Error occurred when read body [%v]", err)
@@ -188,7 +188,7 @@ func TestHttpClientWithXmlBodyRequest(t *testing.T) {
 			t.Errorf("Expected Content-Type [%v], got [%v]", expectedContentType, contentType)
 		}
 
-		body, err := ioutil.ReadAll(req.Body)
+		body, err := io.ReadAll(req.Body)
 		defer req.Body.Close()
 		if err != nil {
 			t.Errorf("Error occurred when read body [%v]", err)

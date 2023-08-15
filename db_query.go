@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"golang.org/x/exp/slices"
 	"gorm.io/gorm"
 )
 

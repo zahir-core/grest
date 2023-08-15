@@ -10,6 +10,7 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
+// Cache is a cache utility that manages caching using redis or in-memory data.
 type Cache struct {
 	Exp         time.Duration
 	Ctx         context.Context
@@ -18,6 +19,7 @@ type Cache struct {
 	inMemCache  map[string]string
 }
 
+// Configure initializes the Cache by setting up the Redis client and context.
 func (c *Cache) Configure() error {
 	if c.RedisClient == nil {
 		c.RedisClient = redis.NewClient(&redis.Options{})
@@ -34,6 +36,7 @@ func (c *Cache) Configure() error {
 	return nil
 }
 
+// Get retrieves a cached value associated with a key and stores the result in the value pointed to by val.
 func (c *Cache) Get(key string, val any) error {
 	if c.IsUseRedis {
 		value, err := c.RedisClient.Get(c.Ctx, key).Result()
@@ -57,6 +60,7 @@ func (c *Cache) Get(key string, val any) error {
 	return nil
 }
 
+// Set stores a value in the cache associated with a key and an optional expiration time.
 func (c *Cache) Set(key string, val any, e ...time.Duration) error {
 	expiration := c.Exp
 	if len(e) > 0 {
@@ -81,6 +85,7 @@ func (c *Cache) Set(key string, val any, e ...time.Duration) error {
 	return nil
 }
 
+// Delete removes a cached value associated with a key.
 func (c *Cache) Delete(key string) error {
 	if c.IsUseRedis {
 		err := c.RedisClient.Del(c.Ctx, key).Err()
@@ -96,6 +101,7 @@ func (c *Cache) Delete(key string) error {
 	return nil
 }
 
+// DeleteWithPrefix removes all cached values with keys matching the specified prefix.
 func (c *Cache) DeleteWithPrefix(prefix string) error {
 	if c.IsUseRedis {
 		var cursor uint64
@@ -123,6 +129,7 @@ func (c *Cache) DeleteWithPrefix(prefix string) error {
 	return nil
 }
 
+// Invalidate removes cached values with keys having the specified prefix and additional keys.
 func (c *Cache) Invalidate(prefix string, keys ...string) {
 	for _, k := range keys {
 		c.Delete(prefix + "." + k)
@@ -130,6 +137,7 @@ func (c *Cache) Invalidate(prefix string, keys ...string) {
 	go c.DeleteWithPrefix(prefix + "?")
 }
 
+// Clear removes all cached values from the cache.
 func (c *Cache) Clear() error {
 	if c.IsUseRedis {
 		err := c.RedisClient.FlushDB(c.Ctx).Err()

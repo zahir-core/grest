@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// Error is an implementation of error with trace & other detail.
+// Error is an implementation of the error interface with trace and other details.
 type Error struct {
 	Code    int
 	Message string
@@ -15,14 +15,17 @@ type Error struct {
 	PCs     []uintptr
 }
 
+// Error returns the error message.
 func (e *Error) Error() string {
 	return e.Message
 }
 
+// StatusCode returns the HTTP status code associated with the error.
 func (e *Error) StatusCode() int {
 	return e.Code
 }
 
+// Body returns the error details in a structured format suitable for response bodies.
 func (e *Error) Body() map[string]any {
 	body := map[string]any{
 		"code":    e.Code,
@@ -36,6 +39,7 @@ func (e *Error) Body() map[string]any {
 	}
 }
 
+// Trace returns a slice of maps containing trace information about the error's origin.
 func (e *Error) Trace() []map[string]any {
 	trace := []map[string]any{}
 	for _, pc := range e.PCs {
@@ -54,6 +58,7 @@ func (e *Error) Trace() []map[string]any {
 	return trace
 }
 
+// TraceSimple returns a simplified map of trace information for displaying error traces.
 func (e *Error) TraceSimple() map[string]string {
 	trace := map[string]string{}
 	for i, pc := range e.PCs {
@@ -85,7 +90,7 @@ func (e *Error) TraceSimple() map[string]string {
 	return trace
 }
 
-// NewError returns an error that formats as the given text with statusCode and detail if needed.
+// NewError returns an error with the specified status code, message, and optional detail.
 func NewError(statusCode int, message string, detail ...any) *Error {
 	var pcs [32]uintptr
 	err := &Error{

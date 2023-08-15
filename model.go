@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// ModelInterface defines the methods that a model must implement.
 type ModelInterface interface {
 	TableVersion() string
 	TableName() string
@@ -127,12 +128,12 @@ func (m *Model) TableVersion() string {
 	return "init"
 }
 
-// table name
+// TableName returns the name of the table associated with the model.
 func (m *Model) TableName() string {
 	return "products"
 }
 
-// you can set `TableSchema` if you need "from sub query" with dynamic query based on client's query params
+// TableSchema returns the table schema for dynamic "join sub query" based on client's query params.
 //
 // example "from sub query" :
 //
@@ -163,28 +164,25 @@ func (m *Model) TableSchema() map[string]any {
 	return nil
 }
 
-// table alias name
+// TableAliasName returns the table alias name.
 func (m *Model) TableAliasName() string {
 	return "p"
 }
 
-// move struct tag to m.Fields
+// SetFields sets the fields of the model based on struct tags.
 func (m *Model) SetFields(p any) {
 	ptr := reflect.ValueOf(p)
 	t := ptr.Elem().Type()
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
-		if jsonTag != "" && jsonTag != "-" {
+		if jsonTag, _, _ := strings.Cut(field.Tag.Get("json"), ","); jsonTag != "" && jsonTag != "-" {
+			isHide := false
+			isGroup := false
 			dbTag := field.Tag.Get("db")
-			dbTags := strings.Split(dbTag, ",")
-			isHide := dbTag == "-" || (len(dbTags) > 1 && dbTags[1] == "hide")
-			isGroup := len(dbTags) > 1 && dbTags[1] == "group"
+			dbTag, _, isHide = strings.Cut(dbTag, ",hide")
+			dbTag, _, isGroup = strings.Cut(dbTag, ",group")
 			if isGroup {
-				m.AddGroup(jsonTag, dbTags[0])
-			}
-			if isHide || isGroup {
-				dbTag = dbTags[0]
+				m.AddGroup(jsonTag, dbTag)
 			}
 			isArray := field.Type.Kind() == reflect.Slice
 			if isArray {
@@ -230,6 +228,7 @@ func (m *Model) SetFields(p any) {
 	}
 }
 
+// callMethod calls a method on a struct and returns the result.
 func (m *Model) callMethod(ptr reflect.Value, methodName string, args []reflect.Value) []reflect.Value {
 	val := []reflect.Value{}
 	if m := ptr.Elem().MethodByName(methodName); m.IsValid() {
@@ -243,7 +242,7 @@ func (m *Model) callMethod(ptr reflect.Value, methodName string, args []reflect.
 	return val
 }
 
-// add field to model if not exists
+// AddField adds a field to the model if it doesn't exist.
 func (m *Model) AddField(fieldKey string, fieldOpt map[string]any) {
 	if m.Fields != nil {
 		if m.Fields[fieldKey] == nil {
@@ -255,13 +254,14 @@ func (m *Model) AddField(fieldKey string, fieldOpt map[string]any) {
 	m.FieldOrder = append(m.FieldOrder, fieldKey)
 }
 
-// get model field, use SetFields to automatically setted by struct tag using SetFields, but you can add or override this. expected key :
+// GetFields returns the model fields.
 //
-//	column : column to filter, based on field in the db (or raw query)
-//	as : column to filter, based on field in the db (or raw query)
-//	column2 : another column to filter, based on field in the db (or raw query), used to compare 2 column
-//	operator : operator to compare, if not set the default is "="
-//	value : value to compare
+// Use SetFields to automatically setted by struct tag using SetFields, but you can add or override this. expected key :
+//   - column : column to filter, based on field in the db (or raw query)
+//   - as : column to filter, based on field in the db (or raw query)
+//   - column2 : another column to filter, based on field in the db (or raw query), used to compare 2 column
+//   - operator : operator to compare, if not set the default is "="
+//   - value : value to compare
 //
 // example :
 //
@@ -274,11 +274,12 @@ func (m *Model) GetFields() map[string]map[string]any {
 	return m.Fields
 }
 
+// GetFieldOrder returns the order of model fields.
 func (m *Model) GetFieldOrder() []string {
 	return m.FieldOrder
 }
 
-// add array field to model if not exists
+// AddArrayField adds an array field to the model if it doesn't exist.
 func (m *Model) AddArrayField(fieldKey string, fieldOpt map[string]any) {
 	if m.ArrayFields != nil {
 		if m.ArrayFields[fieldKey] == nil {
@@ -290,15 +291,17 @@ func (m *Model) AddArrayField(fieldKey string, fieldOpt map[string]any) {
 	m.ArrayFieldOrder = append(m.ArrayFieldOrder, fieldKey)
 }
 
+// GetArrayFields returns the array fields of the model.
 func (m *Model) GetArrayFields() map[string]map[string]any {
 	return m.ArrayFields
 }
 
+// GetArrayFieldOrder returns the order of array fields.
 func (m *Model) GetArrayFieldOrder() []string {
 	return m.ArrayFieldOrder
 }
 
-// add group to model if not exists
+// AddGroup adds a field to the specified group.
 func (m *Model) AddGroup(fieldKey string, fieldName string) {
 	if m.Groups != nil {
 		if m.Groups[fieldKey] == "" {
@@ -309,16 +312,16 @@ func (m *Model) AddGroup(fieldKey string, fieldName string) {
 	}
 }
 
+// GetGroups returns the field groups.
 func (m *Model) GetGroups() map[string]string {
 	return m.Groups
 }
 
-// add relation to model
-//
-//	joinType : sql join type (inner, left, etc)
-//	tableName : column in the db (or raw subquery) to be joined or model schema (to auto generate sub query filtered based on client's filter)
-//	tableAliasName : table alias name on sql join, also used as relation key
-//	conditions : []map[string]any same as "Filters"
+// AddRelation adds a relation to the model.
+//   - joinType : sql join type (inner, left, etc)
+//   - tableName : column in the db (or raw subquery) to be joined or model schema (to auto generate sub query filtered based on client's filter)
+//   - tableAliasName : table alias name on sql join, also used as relation key
+//   - conditions : []map[string]any same as "Filters"
 func (m *Model) AddRelation(joinType string, tableName any, tableAliasName string, conditions []map[string]any) {
 	relation := map[string]any{
 		"tableName":      tableName,
@@ -338,12 +341,11 @@ func (m *Model) AddRelation(joinType string, tableName any, tableAliasName strin
 	m.RelationOrder = append(m.RelationOrder, tableAliasName)
 }
 
-// get model relation, expected key :
-//
-//	type : sql join type (inner, left, etc)
-//	tableName :
-//	tableAliasName
-//	conditions : []map[string]any same as "Filters"
+// GetRelations returns the model relations., expected key :
+//   - type : sql join type (inner, left, etc)
+//   - tableName :
+//   - tableAliasName
+//   - conditions : []map[string]any same as "Filters"
 //
 // example :
 //
@@ -355,23 +357,23 @@ func (m *Model) GetRelations() map[string]map[string]any {
 	return m.Relations
 }
 
+// GetRelationOrder returns the order of relations.
 func (m *Model) GetRelationOrder() []string {
 	return m.RelationOrder
 }
 
-// add model filter
+// AddFilter adds a filter to the model.
 func (m *Model) AddFilter(filter map[string]any) {
 	m.Filters = append(m.Filters, filter)
 }
 
-// get model filter, expected key :
-//
-//	column1 : column (or raw query) in the db to be filtered
-//	column1jsonKey : dot notation paths of json field in column1
-//	operator : sql operator (=, !=, >, >=, <, <=, like, not like, in, not in, etc)
-//	column2 : another column (or raw query) in the db (to compare values between columns in the db)
-//	column2jsonKey : dot notation paths of json field in column2
-//	value : desired value to be filtered
+// GetFilters returns the model filters. expected key :
+//   - column1 : column (or raw query) in the db to be filtered
+//   - column1jsonKey : dot notation paths of json field in column1
+//   - operator : sql operator (=, !=, >, >=, <, <=, like, not like, in, not in, etc)
+//   - column2 : another column (or raw query) in the db (to compare values between columns in the db)
+//   - column2jsonKey : dot notation paths of json field in column2
+//   - value : desired value to be filtered
 //
 // example :
 //
@@ -383,18 +385,17 @@ func (m *Model) GetFilters() []map[string]any {
 	return m.Filters
 }
 
-// add model sort
+// AddSort adds a sort order to the model.
 func (m *Model) AddSort(sort map[string]any) {
 	m.Sorts = append(m.Sorts, sort)
 }
 
-// get model sort, expected key :
-//
-//	column : column in the db to be filtered
-//	jsonKey : dot notation paths of json field in column
-//	direction : sql order direction (asc, desc)
-//	isCaseInsensitive : if true, the sort will case insensitive
-//	isRequired : if true, the sort will not be overridden by the client's own
+// GetSorts returns the model sort orders. expected key :
+//   - column : column in the db to be filtered
+//   - jsonKey : dot notation paths of json field in column
+//   - direction : sql order direction (asc, desc)
+//   - isCaseInsensitive : if true, the sort will case insensitive
+//   - isRequired : if true, the sort will not be overridden by the client's own
 //
 // example :
 //
@@ -406,6 +407,7 @@ func (m *Model) GetSorts() []map[string]any {
 	return m.Sorts
 }
 
+// SetSchema sets the schema for the model.
 func (m *Model) SetSchema(model ModelInterface) map[string]any {
 	return map[string]any{
 		"tableName":       model.TableName(),
@@ -424,30 +426,31 @@ func (m *Model) SetSchema(model ModelInterface) map[string]any {
 	}
 }
 
+// GetSchema returns the model schema.
 func (m *Model) GetSchema() map[string]any {
 	return m.SetSchema(m)
 }
 
+// OpenAPISchemaName returns the OpenAPI schema name.
 func (m *Model) OpenAPISchemaName() string {
 	return ""
 }
 
+// SetOpenAPISchema sets the OpenAPI schema for the model.
 func (m *Model) GetOpenAPISchema() map[string]any {
 	return m.SetOpenAPISchema(m)
 }
 
+// SetOpenAPISchema generates the OpenAPI schema for the model based on its fields.
+// It returns a map representing the OpenAPI schema for the model.
 func (m *Model) SetOpenAPISchema(p any) map[string]any {
 	openAPISchema := map[string]any{}
 	ptr := reflect.ValueOf(p)
 	t := ptr.Elem().Type()
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		jsonTag := strings.Split(field.Tag.Get("json"), ",")[0]
-		if jsonTag != "" && jsonTag != "-" {
-			dbTag := field.Tag.Get("db")
-			dbTags := strings.Split(dbTag, ",")
-			isHide := dbTag == "-" || (len(dbTags) > 1 && dbTags[1] == "hide")
-			if !isHide {
+		if jsonTag, _, _ := strings.Cut(field.Tag.Get("json"), ","); jsonTag != "" && jsonTag != "-" {
+			if _, _, isHide := strings.Cut(field.Tag.Get("db"), ",hide"); !isHide {
 				isArray := field.Type.Kind() == reflect.Slice
 				if isArray {
 					gqs := m.callMethod(reflect.New(field.Type.Elem()), "GetOpenAPISchema", []reflect.Value{})
@@ -478,6 +481,8 @@ func (m *Model) SetOpenAPISchema(p any) map[string]any {
 	}
 }
 
+// getJSONSchema generates the JSON schema based on the provided field type name and struct tag.
+//
 // JSON Schema Spec : https://datatracker.ietf.org/doc/html/draft-bhutton-json-schema-validation-01
 //
 //	type: string               # null, boolean, string, integer, number, object, array
@@ -567,7 +572,7 @@ func (m *Model) getJSONSchema(typeName string, tag reflect.StructTag) map[string
 	if tag.Get("note") != "" {
 		f["description"] = tag.Get("note")
 	}
-	for _, k := range []string{"title", "description", "default", "example"} {
+	for _, k := range []string{"title", "description", "format", "default", "example"} {
 		if tag.Get(k) != "" {
 			f[k] = tag.Get(k)
 		}
@@ -625,6 +630,7 @@ func (m *Model) getJSONSchema(typeName string, tag reflect.StructTag) map[string
 	return f
 }
 
+// nestedOpenAPISchema generates nested OpenAPI schema for non-flat models.
 func (m Model) nestedOpenAPISchema(flatSchema map[string]any) map[string]any {
 	nested := map[string]any{}
 	for k, v := range flatSchema {
@@ -655,6 +661,7 @@ func (m Model) nestedOpenAPISchema(flatSchema map[string]any) map[string]any {
 	return nested
 }
 
+// fillOpenAPISchema recursively fills the nested OpenAPI schema.
 func (m Model) fillOpenAPISchema(data map[string]any, key string, val any) any {
 	d, exist := data[key].(map[string]any)
 	if exist {
@@ -670,19 +677,20 @@ func (m Model) fillOpenAPISchema(data map[string]any, key string, val any) any {
 	return val
 }
 
+// IsFlat returns whether the model is flat or not.
 func (m *Model) IsFlat() bool {
 	return false
 }
 
-// bind json byte to struct
-func (m *Model) Bind(data []byte) error {
+// Bind binds JSON data to the model.
+func (*Model) Bind(m ModelInterface, data []byte) error {
 	if m.IsFlat() {
 		return json.Unmarshal(data, m)
 	}
 	return NewJSON(data).ToFlat().Unmarshal(m)
 }
 
-// get data after query to db
+// GetData retrieves the data after querying the database.
 func (m *Model) GetData() any {
 	if m.IsFlat() {
 		return m

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 )
 
+// Telegram is an utility to send telegram message using the Telegram API.
 type Telegram struct {
 	BaseURL     string
 	BotToken    string
@@ -22,10 +23,12 @@ type Telegram struct {
 	ReplyMarkup any
 }
 
+// AddMessage sets the text message to be sent.
 func (t *Telegram) AddMessage(text string) {
 	t.Text = text
 }
 
+// AddAttachment adds an attachment to the message based on the file type.
 func (t *Telegram) AddAttachment(file *multipart.FileHeader) {
 	switch filepath.Ext(file.Filename) {
 	case "jpg", "jpeg", "png", "gif":
@@ -39,6 +42,7 @@ func (t *Telegram) AddAttachment(file *multipart.FileHeader) {
 	}
 }
 
+// Send sends the message with attachments to the specified chat.
 func (t *Telegram) Send() error {
 	if t.BaseURL == "" {
 		t.BaseURL = "https://api.telegram.org"

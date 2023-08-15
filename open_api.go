@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// OpenAPI represents the OpenAPI specification structure.
 // The full Latest OpenAPI Specification is available on https://spec.openapis.org/oas/latest.html
 type OpenAPI struct {
 	OpenAPI           string              `json:"openapi,omitempty"`
@@ -22,20 +23,24 @@ type OpenAPI struct {
 	ExternalDocs      OpenAPIExternalDoc  `json:"externalDocs,omitempty"`
 }
 
+// SetVersion sets the OpenAPI version to "3.0.3".
 func (o *OpenAPI) SetVersion() {
 	o.OpenAPI = "3.0.3"
 }
 
+// Configure is a placeholder method for adding OpenAPI documentation.
 func (o *OpenAPI) Configure() {
 	// add your openapi doc here
 }
 
-// the full latest specs is available on https://spec.openapis.org/oas/latest.html#server-object
+// AddServer adds a server to the OpenAPI specification.
+// The full latest specs is available on https://spec.openapis.org/oas/latest.html#server-object
 func (o *OpenAPI) AddServer(server map[string]any) {
 	o.Servers = append(o.Servers, server)
 }
 
-// the full latest specs is available on https://spec.openapis.org/oas/latest.html#tag-object
+// AddTag adds a tag to the OpenAPI specification.
+// The full latest specs is available on https://spec.openapis.org/oas/latest.html#tag-object
 func (o *OpenAPI) AddTag(tag map[string]any) {
 	tagName, ok := tag["name"].(string)
 	if ok {
@@ -52,6 +57,7 @@ func (o *OpenAPI) AddTag(tag map[string]any) {
 	}
 }
 
+// AddPath adds a path to the OpenAPI specification.
 func (o *OpenAPI) AddPath(key, method string, operationObject any) {
 	if o.Paths != nil {
 		path, _ := o.Paths[key]
@@ -61,6 +67,7 @@ func (o *OpenAPI) AddPath(key, method string, operationObject any) {
 	}
 }
 
+// AddWebhook adds a webhook to the OpenAPI specification.
 func (o *OpenAPI) AddWebhook(key string, val any) {
 	if o.Webhooks != nil {
 		o.Webhooks[key] = val
@@ -69,7 +76,8 @@ func (o *OpenAPI) AddWebhook(key string, val any) {
 	}
 }
 
-// the full latest specs is available on https://spec.openapis.org/oas/latest.html#components-object
+// AddComponent adds a component to the OpenAPI specification.
+// The full latest specs is available on https://spec.openapis.org/oas/latest.html#components-object
 func (o *OpenAPI) AddComponent(key string, val any) {
 	if o.Components != nil {
 		component, isComponentExists := o.Components[key]
@@ -91,6 +99,7 @@ func (o *OpenAPI) AddComponent(key string, val any) {
 	}
 }
 
+// AddRoute generates and adds an OpenAPI operation for a route.
 func (o *OpenAPI) AddRoute(path, method string, op OpenAPIOperationInterface) {
 	fmt.Println("OpenAPI : add paths", path, method)
 	operationObject := map[string]any{}
@@ -193,6 +202,7 @@ func (o *OpenAPI) AddRoute(path, method string, op OpenAPIOperationInterface) {
 	o.AddPath(path, strings.ToLower(method), operationObject)
 }
 
+// Generate generates the OpenAPI specification and writes it to a file.
 func (o *OpenAPI) Generate(p ...string) error {
 	b, err := json.MarshalIndent(o, "", "  ")
 	if err != nil {
@@ -209,6 +219,7 @@ func (o *OpenAPI) Generate(p ...string) error {
 	return nil
 }
 
+// OpenAPIInfo represents the information section of the OpenAPI specification.
 type OpenAPIInfo struct {
 	Title          string         `json:"title"`
 	Description    string         `json:"description,omitempty"`
@@ -218,24 +229,27 @@ type OpenAPIInfo struct {
 	Version        string         `json:"version"`
 }
 
+// OpenAPIContact represents the contact information in the OpenAPI info section.
 type OpenAPIContact struct {
 	Name  string `json:"name"`
 	Email string `json:"email,omitempty"`
 	Url   string `json:"url,omitempty"`
 }
 
+// OpenAPILicense represents the license information in the OpenAPI info section.
 type OpenAPILicense struct {
 	Name string `json:"name"`
 	Url  string `json:"url,omitempty"`
 }
 
+// OpenAPIExternalDoc represents an external documentation link in the OpenAPI specification.
 type OpenAPIExternalDoc struct {
 	Description string `json:"description,omitempty"`
 	Url         string `json:"url"`
 }
 
-// OpenAPIOperationInterface used to complete the operation object of specific endpoint to the open api document
-// Full specs is available on https://spec.openapis.org/oas/latest.html#operation-object
+// OpenAPIOperationInterface defines the interface for completing the operation object of an endpoint in the OpenAPI document.
+// Full specifications are available at: https://spec.openapis.org/oas/latest.html#operation-object
 type OpenAPIOperationInterface interface {
 
 	// The tags of specific endpoint.
@@ -402,11 +416,13 @@ type OpenAPIOperationInterface interface {
 	OpenAPIExternalDoc() (string, string)
 }
 
+// OpenAPISchemaComponent defines the interface for components with OpenAPI schemas.
 type OpenAPISchemaComponent interface {
 	OpenAPISchemaName() string
 	GetOpenAPISchema() map[string]any
 }
 
+// OpenAPIOperation represents an OpenAPI operation object.
 type OpenAPIOperation struct {
 	ID              string
 	Tags            []string

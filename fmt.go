@@ -89,6 +89,7 @@ var (
 )
 
 // Fmt format log with attribute
+//
 //	for example :
 //	  log.Fmt("text", log.Bold, log.Red)
 //
@@ -105,13 +106,17 @@ func Fmt(s string, attribute ...uint8) string {
 	return "\x1b[" + strings.Join(format, ";") + "m" + s + "\x1b[0m"
 }
 
+// FileFormatter provides methods to format struct tags in Go source files.
 type FileFormatter struct{}
 
+// StructTag represents a key-value pair within a struct tag.
 type StructTag struct {
 	Key   string
 	Value string
 }
 
+// FormatFile formats struct tags in Go source files.
+// It accepts a list of file paths to process.
 func FormatFile(paths ...string) {
 	if len(paths) == 0 {
 		paths = append(paths, ".")
@@ -131,6 +136,7 @@ func FormatFile(paths ...string) {
 	}
 }
 
+// Format reformats struct tags in a given file.
 func (ff FileFormatter) Format(fileName string) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, fileName, nil, parser.ParseComments)
@@ -166,6 +172,7 @@ func (ff FileFormatter) Format(fileName string) {
 	}
 }
 
+// ParseTag extracts struct tags from fields and returns a map of tag data along with max tag lengths.
 func (ff FileFormatter) ParseTag(fields []*ast.Field) (mapTag map[string][]StructTag, maxTagLen map[string]int) {
 	mapTag = map[string][]StructTag{}
 	maxTagLen = map[string]int{}
@@ -198,6 +205,7 @@ func (ff FileFormatter) ParseTag(fields []*ast.Field) (mapTag map[string][]Struc
 	return mapTag, maxTagLen
 }
 
+// RewriteTag rewrites struct tags in the fields based on the provided mapTag and maxTagLen data.
 func (ff FileFormatter) RewriteTag(fields []*ast.Field, mapTag map[string][]StructTag, maxTagLen map[string]int) {
 	for _, field := range fields {
 		if len(field.Names) > 0 {
@@ -212,6 +220,7 @@ func (ff FileFormatter) RewriteTag(fields []*ast.Field, mapTag map[string][]Stru
 	}
 }
 
+// FormattedTagString generates a properly formatted struct tag string.
 func (ff FileFormatter) FormattedTagString(tags []StructTag, maxTagLen map[string]int) string {
 	if len(tags) == 0 {
 		return ""
@@ -242,6 +251,7 @@ func (ff FileFormatter) FormattedTagString(tags []StructTag, maxTagLen map[strin
 	return "`" + strings.Trim(newTag, " ") + "`"
 }
 
+// TagValueWithDelimiter formats the tag value with the appropriate delimiter and padding.
 func (ff FileFormatter) TagValueWithDelimiter(str string, maxLen int) string {
 	tag := `"` + str + `"`
 	n := maxLen - len(str) + 1

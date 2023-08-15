@@ -14,6 +14,7 @@ import (
 	"time"
 )
 
+// HttpClient is a utility to perform HTTP requests and manage various request parameters.
 type HttpClient struct {
 	IsDebug      bool
 	Timeout      time.Duration
@@ -25,10 +26,12 @@ type HttpClient struct {
 	BodyResponse []byte
 }
 
+// NewHttpClient creates a new HttpClient instance with the provided HTTP method and URL.
 func NewHttpClient(method, url string) *HttpClient {
 	return &HttpClient{Method: method, Url: url}
 }
 
+// AddHeader adds a new header to the request.
 func (c *HttpClient) AddHeader(key, value string) {
 	if c.Header == nil {
 		c.Header = http.Header{key: []string{value}}
@@ -39,6 +42,7 @@ func (c *HttpClient) AddHeader(key, value string) {
 	}
 }
 
+// AddMultipartBody adds a multipart/form-data request body.
 func (c *HttpClient) AddMultipartBody(body any) error {
 	b := &bytes.Buffer{}
 	writer := multipart.NewWriter(b)
@@ -104,6 +108,7 @@ func (c *HttpClient) AddMultipartBody(body any) error {
 	return nil
 }
 
+// AddUrlEncodedBody adds an application/x-www-form-urlencoded request body.
 func (c *HttpClient) AddUrlEncodedBody(body any) error {
 	params := url.Values{}
 	data, ok := body.(map[string]any)
@@ -142,6 +147,7 @@ func (c *HttpClient) AddUrlEncodedBody(body any) error {
 	return nil
 }
 
+// AddJsonBody adds a JSON request body.
 func (c *HttpClient) AddJsonBody(body any) error {
 	b, err := json.Marshal(body)
 	if err != nil {
@@ -155,6 +161,7 @@ func (c *HttpClient) AddJsonBody(body any) error {
 	return nil
 }
 
+// AddXmlBody adds an XML request body.
 func (c *HttpClient) AddXmlBody(body any) error {
 	b, err := xml.Marshal(body)
 	if err != nil {
@@ -168,10 +175,12 @@ func (c *HttpClient) AddXmlBody(body any) error {
 	return nil
 }
 
+// SetTimeout sets the timeout duration for the HTTP request.
 func (c *HttpClient) SetTimeout(timeout time.Duration) {
 	c.Timeout = timeout
 }
 
+// Send sends the HTTP request and returns the HTTP response.
 func (c *HttpClient) Send() (*http.Response, error) {
 	req, err := http.NewRequest(c.Method, c.Url, c.Body)
 	if err != nil {
@@ -224,18 +233,22 @@ func (c *HttpClient) Send() (*http.Response, error) {
 	return res, nil
 }
 
+// BodyResponseStr returns the response body as a string.
 func (c *HttpClient) BodyResponseStr() string {
 	return string(c.BodyResponse)
 }
 
+// UnmarshalJson unmarshals the JSON response body into the provided target.
 func (c *HttpClient) UnmarshalJson(v any) error {
 	return json.Unmarshal(c.BodyResponse, v)
 }
 
+// UnmarshalXml unmarshals the XML response body into the provided target.
 func (c *HttpClient) UnmarshalXml(v any) error {
 	return xml.Unmarshal(c.BodyResponse, v)
 }
 
+// Debug enables debug mode for the HttpClient, printing request and response details.
 func (c *HttpClient) Debug() {
 	c.IsDebug = true
 }

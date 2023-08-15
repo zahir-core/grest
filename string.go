@@ -2,14 +2,14 @@ package grest
 
 import "strings"
 
-type String struct {
-}
+// String represents utility functions for string manipulation.
+type String struct{}
 
-// Quote string with slashes
-// Returns a string with backslashes added before characters that need to be escaped. These characters are:
-// single quote (')
-// double quote (")
-// backslash (\)
+// AddSlashes adds slashes before characters that need to be escaped.
+// These characters are:
+//   - single quote (')
+//   - double quote (")
+//   - and backslash (\)
 func (String) AddSlashes(str string) string {
 	b := strings.Builder{}
 	for _, r := range []rune(str) {
@@ -24,7 +24,7 @@ func (String) AddSlashes(str string) string {
 	return b.String()
 }
 
-// Un-quotes a quoted string.
+// StripSlashes un-quotes a quoted string.
 func (String) StripSlashes(str string) string {
 	b := strings.Builder{}
 	strRune := []rune(str)
@@ -37,7 +37,7 @@ func (String) StripSlashes(str string) string {
 	return b.String()
 }
 
-// convert string to camelCase
+// CamelCase converts a string to camelCase.
 func (s String) CamelCase(str string, startWithUpper ...bool) string {
 	b := strings.Builder{}
 	strRune := []rune(str)
@@ -66,12 +66,12 @@ func (s String) CamelCase(str string, startWithUpper ...bool) string {
 	return b.String()
 }
 
-// convert string to PascalCase
+// PascalCase converts a string to PascalCase.
 func (s String) PascalCase(str string) string {
 	return s.CamelCase(str, true)
 }
 
-// convert string to snake_case, kebab-case or other (based on delimiter)
+// SpecialCase converts a string to snake_case, kebab-case, or other formats based on the delimiter.
 func (s String) SpecialCase(str string, delimiter rune) string {
 	b := strings.Builder{}
 	strRune := []rune(str)
@@ -97,32 +97,37 @@ func (s String) SpecialCase(str string, delimiter rune) string {
 	return b.String()
 }
 
-// convert string to snake_case
+// SnakeCase converts a string to snake_case.
 func (s String) SnakeCase(str string) string {
 	return s.SpecialCase(str, '_')
 }
 
-// convert string to kebab-case
+// KebabCase converts a string to kebab-case.
 func (s String) KebabCase(str string) string {
 	return s.SpecialCase(str, '-')
 }
 
+// IsLowerAlphaRune checks if a rune is a lowercase alphabetic character.
 func (String) IsLowerAlphaRune(r rune) bool {
 	return r >= 'a' && r <= 'z'
 }
 
+// IsUpperAlphaRune checks if a rune is an uppercase alphabetic character.
 func (String) IsUpperAlphaRune(r rune) bool {
 	return r >= 'A' && r <= 'Z'
 }
 
+// IsNumericRune checks if a rune is a numeric character.
 func (String) IsNumericRune(r rune) bool {
 	return r >= '0' && r <= '9'
 }
 
+// IsAlphaNumericRune checks if a rune is an alphanumeric character.
 func (s String) IsAlphaNumericRune(r rune) bool {
 	return s.IsLowerAlphaRune(r) || s.IsUpperAlphaRune(r) || s.IsNumericRune(r)
 }
 
+// ToLowerAlphaRune converts an uppercase alphabetic rune to lowercase.
 func (s String) ToLowerAlphaRune(r rune) rune {
 	if s.IsUpperAlphaRune(r) {
 		return r + 'a' - 'A'
@@ -130,6 +135,7 @@ func (s String) ToLowerAlphaRune(r rune) rune {
 	return r
 }
 
+// ToUpperAlphaRune converts a lowercase alphabetic rune to uppercase.
 func (s String) ToUpperAlphaRune(r rune) rune {
 	if s.IsLowerAlphaRune(r) {
 		return r - 'a' + 'A'
@@ -137,6 +143,7 @@ func (s String) ToUpperAlphaRune(r rune) rune {
 	return r
 }
 
+// FirstAlphaRuneIndex finds the index of the first alphabetic rune.
 func (s String) FirstAlphaRuneIndex(sr []rune, start int) int {
 	for i, r := range sr {
 		if i >= start && (s.IsLowerAlphaRune(r) || s.IsUpperAlphaRune(r)) {
@@ -146,6 +153,7 @@ func (s String) FirstAlphaRuneIndex(sr []rune, start int) int {
 	return len(sr)
 }
 
+// FirstAlphaNumericRuneIndex finds the index of the first alphanumeric rune.
 func (s String) FirstAlphaNumericRuneIndex(sr []rune, start int) int {
 	for i, r := range sr {
 		if i >= start && (s.IsLowerAlphaRune(r) || s.IsUpperAlphaRune(r) || s.IsNumericRune(r)) {
@@ -155,6 +163,7 @@ func (s String) FirstAlphaNumericRuneIndex(sr []rune, start int) int {
 	return len(sr)
 }
 
+// GetVars extracts variables from a string using specified before and after delimiters.
 func (String) GetVars(str, before, after string) []string {
 	vars := []string{}
 	temp := strings.Split(str, before)
