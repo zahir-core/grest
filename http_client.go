@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -199,7 +200,9 @@ func (c *HttpClient) Send() (*http.Response, error) {
 	}
 
 	startTime := time.Now()
-	client := http.DefaultClient
+	defaultTransport := &http.Transport{}
+	defaultTransport.DialContext = (&net.Dialer{}).DialContext
+	client := http.Client{Timeout: time.Second * 10, Transport: defaultTransport}
 	if c.Timeout > 0 {
 		client.Timeout = c.Timeout
 	}
