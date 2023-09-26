@@ -11,7 +11,7 @@ const Version = "v0.0.1"
 // StartupMessage generates and prints the startup message for the server.
 func StartupMessage(addr string) {
 	host, port, _ := strings.Cut(addr, ":")
-	if host == "0.0.0.0" {
+	if host == "" || host == "0.0.0.0" {
 		host = "127.0.0.1"
 	}
 

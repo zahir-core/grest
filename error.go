@@ -2,7 +2,9 @@ package grest
 
 import (
 	"fmt"
+	"net/http"
 	"os"
+	"reflect"
 	"runtime"
 	"strings"
 )
@@ -15,7 +17,45 @@ type Error struct {
 	PCs     []uintptr
 }
 
-// Error returns the error message.
+// NewError returns an error with the specified status code, message, and optional detail.
+func NewError(statusCode int, message string, detail ...any) *Error {
+	var pcs [32]uintptr
+	err := &Error{
+		Code:    statusCode,
+		Message: message,
+		PCs:     pcs[0:runtime.Callers(2, pcs[:])],
+	}
+	if len(detail) > 0 {
+		err.Detail = detail[0]
+	}
+
+	return err
+}
+
+// New return new *Error
+func (e *Error) New(code int, message string, detail ...any) *Error {
+	return NewError(code, message, detail...)
+}
+
+// GetError return *Error from any type err
+func (e *Error) GetError(err any) *Error {
+	if er, ok := err.(*Error); ok {
+		return er
+	} else if er, ok := err.(error); ok {
+		code := http.StatusInternalServerError
+		rv := reflect.ValueOf(err)
+		if rv.Kind() == reflect.Pointer {
+			rv = rv.Elem()
+		}
+		if rvCode := rv.FieldByName("Code"); rvCode.Kind() == reflect.Int {
+			code = int(rvCode.Int())
+		}
+		return NewError(code, er.Error())
+	}
+	return NewError(http.StatusInternalServerError, fmt.Sprintf("%v", err))
+}
+
+// Error returns the error message, makes it compatible with the `error` interface.
 func (e *Error) Error() string {
 	return e.Message
 }
@@ -88,19 +128,4 @@ func (e *Error) TraceSimple() map[string]string {
 		}
 	}
 	return trace
-}
-
-// NewError returns an error with the specified status code, message, and optional detail.
-func NewError(statusCode int, message string, detail ...any) *Error {
-	var pcs [32]uintptr
-	err := &Error{
-		Code:    statusCode,
-		Message: message,
-		PCs:     pcs[0:runtime.Callers(2, pcs[:])],
-	}
-	if len(detail) > 0 {
-		err.Detail = detail[0]
-	}
-
-	return err
 }

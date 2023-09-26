@@ -54,4 +54,16 @@ func TestError(t *testing.T) {
 			t.Errorf("Expected e.Trace()[0][line] [%v], got [%v]", traceLine, line)
 		}
 	}
+	if x := e.GetError(&customError{404, "custom error"}); x.StatusCode() != 404 || x.Message != "custom error" {
+		t.Errorf("Expected e.GetError().StatusCode() [%v], got [%v]", 404, x.StatusCode())
+	}
+}
+
+type customError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+func (e *customError) Error() string {
+	return e.Message
 }
