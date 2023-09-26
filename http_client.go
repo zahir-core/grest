@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -17,7 +18,7 @@ import (
 // HttpClient is a utility to perform HTTP requests and manage various request parameters.
 type HttpClient struct {
 	IsDebug      bool
-	Timeout      time.Duration
+	Client       *http.Client
 	Method       string
 	Url          string
 	Header       http.Header
@@ -28,7 +29,17 @@ type HttpClient struct {
 
 // NewHttpClient creates a new HttpClient instance with the provided HTTP method and URL.
 func NewHttpClient(method, url string) *HttpClient {
-	return &HttpClient{Method: method, Url: url}
+	return &HttpClient{Method: method, Url: url, Client: http.DefaultClient}
+}
+
+// SetClient set your own http client instead of http.DefaultClient
+func (c *HttpClient) SetClient(client *http.Client) {
+	c.Client = client
+}
+
+// SetTimeout sets the timeout duration for the HTTP request.
+func (c *HttpClient) SetTimeout(timeout time.Duration) {
+	c.Client.Timeout = timeout
 }
 
 // AddHeader adds a new header to the request.
@@ -175,11 +186,6 @@ func (c *HttpClient) AddXmlBody(body any) error {
 	return nil
 }
 
-// SetTimeout sets the timeout duration for the HTTP request.
-func (c *HttpClient) SetTimeout(timeout time.Duration) {
-	c.Timeout = timeout
-}
-
 // Send sends the HTTP request and returns the HTTP response.
 func (c *HttpClient) Send() (*http.Response, error) {
 	req, err := http.NewRequest(c.Method, c.Url, c.Body)
@@ -193,33 +199,47 @@ func (c *HttpClient) Send() (*http.Response, error) {
 	}
 
 	if c.IsDebug {
-		fmt.Println("-----------------------------------------------------")
-		fmt.Println(c.Method, c.Url)
-		fmt.Println(string(c.BodyDebug))
+		slog.Info("HttpClient Request",
+			slog.String("method", c.Method),
+			slog.String("url", c.Url),
+			slog.Any("header", c.Header),
+			slog.String("body", string(c.BodyDebug)),
+		)
 	}
 
 	startTime := time.Now()
-	client := http.DefaultClient
-	if c.Timeout > 0 {
-		client.Timeout = c.Timeout
+	res, err := c.Client.Do(req)
+	if err == nil {
+		defer res.Body.Close()
+		b, err := io.ReadAll(res.Body)
+		if err == nil {
+			c.BodyResponse = b
+		}
 	}
-	res, err := client.Do(req)
-	endTime := time.Now()
-	responseTime := endTime.Sub(startTime).Seconds()
-	if err != nil {
-		return res, err
-	}
-	defer res.Body.Close()
-
-	b, err := io.ReadAll(res.Body)
-	if err != nil {
-		return res, err
-	}
-	c.BodyResponse = b
 	if c.IsDebug {
-		fmt.Println("-----------------------------------------------------")
-		fmt.Println("http status code:", res.StatusCode, ", response time:", fmt.Sprintf("%v", responseTime)+"s")
-		fmt.Println(string(b))
+		slog.Info("HttpClient Response",
+			slog.Any("error", err),
+			slog.Group("request",
+				slog.String("method", c.Method),
+				slog.String("url", c.Url),
+				slog.Any("header", c.Header),
+				slog.String("body", string(c.BodyDebug)),
+				slog.Time("at", startTime),
+			),
+			slog.Group("response",
+				slog.Duration("duration", time.Now().Sub(startTime)),
+				slog.Int("statusCode", res.StatusCode),
+				slog.String("status", res.Status),
+				slog.Any("header", res.Header),
+				slog.String("body", string(c.BodyDebug)),
+			),
+		)
+	}
+	if res == nil {
+		res = &http.Response{
+			StatusCode: 500,
+			Request:    req,
+		}
 	}
 
 	if res.StatusCode >= 400 && res.StatusCode <= 499 {
@@ -230,7 +250,7 @@ func (c *HttpClient) Send() (*http.Response, error) {
 		return res, NewError(res.StatusCode, "Unknown Error")
 	}
 
-	return res, nil
+	return res, err
 }
 
 // BodyResponseStr returns the response body as a string.
