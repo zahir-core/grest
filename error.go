@@ -129,3 +129,22 @@ func (e *Error) TraceSimple() map[string]string {
 	}
 	return trace
 }
+
+// OriginalMessage return error message or error.detail.message if exists
+func (e *Error) OriginalMessage() string {
+	msg := e.Error()
+	if mapError, ok := e.Body()["error"].(map[string]any); ok {
+		if mapDetail, ok := mapError["detail"]; ok {
+			if mpDetail, ok := mapDetail.(map[string]string); ok {
+				if errMsg, ok := mpDetail["message"]; ok {
+					msg = errMsg
+				}
+			} else if mpDetail, ok := mapDetail.(map[string]any); ok {
+				if errMsg, ok := mpDetail["message"].(string); ok {
+					msg = errMsg
+				}
+			}
+		}
+	}
+	return msg
+}
