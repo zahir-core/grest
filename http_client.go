@@ -18,12 +18,13 @@ import (
 // HttpClient is a utility to perform HTTP requests and manage various request parameters.
 type HttpClient struct {
 	IsDebug      bool
+	Logger       LoggerInterface
 	Client       *http.Client
 	Method       string
 	Url          string
 	Header       http.Header
 	Body         io.Reader
-	BodyDebug    []byte
+	BodyRequest  []byte
 	BodyResponse []byte
 }
 
@@ -113,7 +114,7 @@ func (c *HttpClient) AddMultipartBody(body any) error {
 	}
 	c.Body = b
 	if c.IsDebug {
-		c.BodyDebug, _ = json.MarshalIndent(body, "", "  ")
+		c.BodyRequest, _ = json.Marshal(body)
 	}
 	c.AddHeader("Content-Type", writer.FormDataContentType())
 	return nil
@@ -150,10 +151,8 @@ func (c *HttpClient) AddUrlEncodedBody(body any) error {
 	}
 
 	b := []byte(params.Encode())
+	c.BodyRequest = b
 	c.Body = bytes.NewBuffer(b)
-	if c.IsDebug {
-		c.BodyDebug = b
-	}
 	c.AddHeader("Content-Type", "application/x-www-form-urlencoded")
 	return nil
 }
@@ -164,10 +163,8 @@ func (c *HttpClient) AddJsonBody(body any) error {
 	if err != nil {
 		return err
 	}
+	c.BodyRequest = b
 	c.Body = bytes.NewBuffer(b)
-	if c.IsDebug {
-		c.BodyDebug, _ = json.MarshalIndent(body, "", "  ")
-	}
 	c.AddHeader("Content-Type", "application/json")
 	return nil
 }
@@ -178,16 +175,18 @@ func (c *HttpClient) AddXmlBody(body any) error {
 	if err != nil {
 		return err
 	}
+	c.BodyRequest = b
 	c.Body = bytes.NewBuffer(b)
-	if c.IsDebug {
-		c.BodyDebug, _ = xml.MarshalIndent(body, "", "  ")
-	}
 	c.AddHeader("Content-Type", "application/xml")
 	return nil
 }
 
 // Send sends the HTTP request and returns the HTTP response.
 func (c *HttpClient) Send() (*http.Response, error) {
+	if c.Logger == nil {
+		c.Logger = slog.Default()
+	}
+	logger := c.Logger.Info
 	req, err := http.NewRequest(c.Method, c.Url, c.Body)
 	if err != nil {
 		return nil, err
@@ -199,11 +198,11 @@ func (c *HttpClient) Send() (*http.Response, error) {
 	}
 
 	if c.IsDebug {
-		slog.Info("HttpClient Request",
+		c.Logger.Debug("HttpClient Request",
 			slog.String("method", c.Method),
 			slog.String("url", c.Url),
 			slog.Any("header", c.Header),
-			slog.String("body", string(c.BodyDebug)),
+			slog.String("body", string(c.BodyRequest)),
 		)
 	}
 
@@ -216,14 +215,15 @@ func (c *HttpClient) Send() (*http.Response, error) {
 			c.BodyResponse = b
 		}
 	}
+	logAttrs := []any{}
 	if c.IsDebug {
-		slog.Info("HttpClient Response",
+		logAttrs = []any{
 			slog.Any("error", err),
 			slog.Group("request",
 				slog.String("method", c.Method),
 				slog.String("url", c.Url),
 				slog.Any("header", c.Header),
-				slog.String("body", string(c.BodyDebug)),
+				slog.String("body", string(c.BodyRequest)),
 				slog.Time("at", startTime),
 			),
 			slog.Group("response",
@@ -231,9 +231,9 @@ func (c *HttpClient) Send() (*http.Response, error) {
 				slog.Int("statusCode", res.StatusCode),
 				slog.String("status", res.Status),
 				slog.Any("header", res.Header),
-				slog.String("body", string(c.BodyDebug)),
+				slog.String("body", string(c.BodyResponse)),
 			),
-		)
+		}
 	}
 	if res == nil {
 		res = &http.Response{
@@ -243,11 +243,17 @@ func (c *HttpClient) Send() (*http.Response, error) {
 	}
 
 	if res.StatusCode >= 400 && res.StatusCode <= 499 {
-		return res, NewError(res.StatusCode, "Client Error")
+		logger = c.Logger.Warn
+		err = NewError(res.StatusCode, "Client Error")
 	} else if res.StatusCode >= 500 && res.StatusCode <= 599 {
-		return res, NewError(res.StatusCode, "Server Error")
+		logger = c.Logger.Error
+		err = NewError(res.StatusCode, "Server Error")
 	} else if res.StatusCode < 100 || res.StatusCode >= 400 {
-		return res, NewError(res.StatusCode, "Unknown Error")
+		logger = c.Logger.Error
+		err = NewError(res.StatusCode, "Unknown Error")
+	}
+	if c.IsDebug {
+		logger("HttpClient Response", logAttrs...)
 	}
 
 	return res, err
@@ -271,4 +277,9 @@ func (c *HttpClient) UnmarshalXml(v any) error {
 // Debug enables debug mode for the HttpClient, printing request and response details.
 func (c *HttpClient) Debug() {
 	c.IsDebug = true
+}
+
+// SetLogger set logger
+func (c *HttpClient) SetLogger(logger LoggerInterface) {
+	c.Logger = logger
 }
