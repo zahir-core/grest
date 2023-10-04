@@ -1,8 +1,9 @@
 package grest
 
 import (
-	"fmt"
+	"log"
 	"strings"
+	"time"
 )
 
 // Version is the current version of the GREST.
@@ -16,6 +17,9 @@ func StartupMessage(addr string) {
 	}
 
 	msg := strings.Builder{}
+	msg.WriteString("\n")
+	msg.WriteString(Fmt(time.Now().Format("[2006-01-02 15:04:05.000 Z07:00]"), FmtHiBlack))
+	msg.WriteString(" Starting server...\n")
 	msg.WriteString(Fmt(`        __________________________________________`, FmtHiMagenta, FmtBold, FmtItalic))
 	msg.WriteString("\n")
 
@@ -82,5 +86,5 @@ func StartupMessage(addr string) {
 	msg.WriteString(Fmt("http://"+host+":"+port, FmtHiGreen))
 	msg.WriteString("\n")
 
-	fmt.Fprintln(FmtStdout, msg.String())
+	log.New(FmtStdout, "", 0).Println(msg.String())
 }
