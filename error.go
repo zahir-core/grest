@@ -47,8 +47,10 @@ func (e *Error) GetError(err any) *Error {
 		if rv.Kind() == reflect.Pointer {
 			rv = rv.Elem()
 		}
-		if rvCode := rv.FieldByName("Code"); rvCode.Kind() == reflect.Int {
-			code = int(rvCode.Int())
+		if rv.Kind() == reflect.Struct {
+			if rvCode := rv.FieldByName("Code"); rvCode.Kind() == reflect.Int {
+				code = int(rvCode.Int())
+			}
 		}
 		return NewError(code, er.Error())
 	}
