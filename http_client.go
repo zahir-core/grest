@@ -215,6 +215,12 @@ func (c *HttpClient) Send() (*http.Response, error) {
 			c.BodyResponse = b
 		}
 	}
+	if res == nil {
+		res = &http.Response{
+			StatusCode: 500,
+			Request:    req,
+		}
+	}
 	logAttrs := []any{}
 	if c.IsDebug {
 		logAttrs = []any{
@@ -233,12 +239,6 @@ func (c *HttpClient) Send() (*http.Response, error) {
 				slog.Any("header", res.Header),
 				slog.String("body", string(c.BodyResponse)),
 			),
-		}
-	}
-	if res == nil {
-		res = &http.Response{
-			StatusCode: 500,
-			Request:    req,
 		}
 	}
 
