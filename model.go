@@ -181,6 +181,9 @@ func (m *Model) SetFields(p any) {
 			dbTag := field.Tag.Get("db")
 			dbTag, _, isHide = strings.Cut(dbTag, ",hide")
 			dbTag, _, isGroup = strings.Cut(dbTag, ",group")
+			if dbTag == "-" {
+				isHide = true
+			}
 			if isGroup {
 				m.AddGroup(jsonTag, dbTag)
 			}
