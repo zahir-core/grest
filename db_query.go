@@ -368,7 +368,9 @@ func (q *DBQuery) SetJoin(db *gorm.DB, schema map[string]any, query url.Values) 
 					if len(cond) > 0 {
 						joinCondition, arg := q.condToWhereSQL(cond)
 						joinConditions = append(joinConditions, joinCondition)
-						args = append(args, arg)
+						if arg != nil {
+							args = append(args, arg)
+						}
 					}
 				}
 
