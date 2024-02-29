@@ -579,7 +579,8 @@ func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 	column1type, _ := cond["column1type"].(string)
 	column1type = strings.ToLower(column1type)
 	column1isBool := strings.Contains(column1type, "bool")
-	column1isDateTime := strings.Contains(column1type, "date") || strings.Contains(column1type, "time")
+	// column1isDateTime := strings.Contains(column1type, "date") || strings.Contains(column1type, "time")
+	column1isString := strings.Contains(column1type, "string") || strings.Contains(column1type, "text")
 
 	isInvalidUUID := strings.Contains(column1type, "uuid") && argStr != "" && validator.New().Var(argStr, "uuid") != nil
 	if column1jsonKey != "" {
@@ -590,8 +591,8 @@ func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 		if column1jsonKey == "" && !strings.Contains(column1, " ") && !strings.Contains(column1, "(") {
 			column1 = q.DB.Statement.Quote(column1)
 		}
-		if (column1isDateTime && isOperatorLIKE) || isInvalidUUID {
-			column1 = "CAST(" + column1 + " AS CHAR(36))"
+		if q.DB.Dialector.Name() == "postgres" && isOperatorLIKE && (!column1isString || isInvalidUUID) {
+			column1 = "CAST(" + column1 + " AS text)"
 		}
 		if isCaseInsensitive {
 			column1 = "LOWER(" + column1 + ")"
@@ -619,7 +620,9 @@ func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 	column2jsonKey, _ := cond["column2jsonKey"].(string)
 	column2type, _ := cond["column2type"].(string)
 	column2type = strings.ToLower(column2type)
-	column2isDateTime := strings.Contains(column2type, "date") || strings.Contains(column2type, "time")
+	column2isString := strings.Contains(column2type, "string") || strings.Contains(column2type, "text")
+	column2isInvalidUUID := strings.Contains(column2type, "uuid") && argStr != "" && validator.New().Var(argStr, "uuid") != nil
+
 	if column2jsonKey != "" {
 		column2 = q.QuoteJSON(column2, column2jsonKey)
 	}
@@ -628,11 +631,13 @@ func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 		if column2jsonKey == "" && !strings.Contains(column2, " ") && !strings.Contains(column2, "(") {
 			column2 = q.DB.Statement.Quote(column2)
 		}
-		if column2isDateTime && isOperatorLIKE {
-			column2 = "CAST(" + column2 + " AS CHAR(36))"
+
+		//special case for postgresql, func like is only for string
+		if q.DB.Dialector.Name() == "postgres" && isOperatorLIKE && (!column2isString || column2isInvalidUUID) {
+			column2 = "CAST(" + column2 + " AS text)"
 		}
 		if isCaseInsensitive {
-			column2 = "LOWER(" + column1 + ")"
+			column2 = "LOWER(" + column2 + ")"
 		}
 		where.WriteString(column2)
 	} else if isOperatorIN {
@@ -822,6 +827,11 @@ func (q *DBQuery) SetOrder(db *gorm.DB, schema map[string]any, query url.Values)
 				}
 			}
 		}
+		fieldType, ok := fields[s]["type"].(string)
+		if ok {
+			srt["type"] = fieldType
+		}
+
 		if srt["column"] != nil {
 			hasQuerySort = true
 			orderBySQL := q.sortToOrderBySQL(srt)
@@ -858,7 +868,15 @@ func (q *DBQuery) sortToOrderBySQL(srt map[string]any) string {
 	}
 	isCaseInsensitive, _ := srt["isCaseInsensitive"].(bool)
 	if isCaseInsensitive {
-		column = "LOWER(" + column + ")"
+		columnVal := column
+		column = "LOWER(" + columnVal + ")"
+		//special case because in postgresql func lower only for string/text
+		if q.DB.Dialector.Name() == "postgres" {
+			dtType, ok := srt["type"].(string)
+			if ok && (!strings.Contains(strings.ToLower(dtType), "string") && !strings.Contains(strings.ToLower(dtType), "text")) {
+				column = columnVal
+			}
+		}
 	}
 	direction, _ := srt["direction"].(string)
 	if direction == "" {
