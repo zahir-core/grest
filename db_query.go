@@ -942,9 +942,9 @@ func (q DBQuery) Quote(text string) string {
 func (q DBQuery) QuoteJSON(column, jsonKey string) string {
 	switch q.DB.Dialector.Name() {
 	case "mysql", "sqlite":
-		return "JSON_EXTRACT(" + q.DB.Statement.Quote(column) + "',$." + jsonKey + "')"
+		return "JSON_EXTRACT(" + q.DB.Statement.Quote(column) + ",'$." + jsonKey + "')"
 	case "sqlserver":
-		return "JSON_VALUE(" + q.DB.Statement.Quote(column) + "',$." + jsonKey + "')"
+		return "JSON_VALUE(" + q.DB.Statement.Quote(column) + ",'$." + jsonKey + "')"
 	case "postgres":
 		jsonPath := strings.Builder{}
 		keys := strings.Split(jsonKey, ".")
