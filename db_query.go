@@ -110,6 +110,13 @@ var (
 	// ex: /contacts?$exclude=families,friends,phones            => exclude fields: families, friends, and phones
 	QueryExclude = "$exclude"
 	QueryDbField = "$db_field"
+
+	// QueryCast defines the delimiter used for casting data types in query parameters.
+	// It allows specifying the desired data type for a field in the format "field:type".
+	// ex: /contacts?created_at:date=2024-01-01                  => sql: select * from contacts where CAST(created_at AS DATE) = 2024-01-01
+	// ex: /contacts?created_at:date.$gte=2024-01-01             => sql: select * from contacts where CAST(created_at AS DATE) >= 2024-01-01
+	// ex: /contacts?is_employee:boolean=true                    => sql: select * from contacts where CAST(is_employee AS BOOLEAN) = TRUE
+	QueryCast = ":"
 )
 
 // Find finds all records matching given conditions conds from model and query params
@@ -486,6 +493,16 @@ func (q *DBQuery) qsToCond(key, val string, fields map[string]map[string]any, ar
 	subkey := strings.Split(key, ".")
 	lastSubkey := subkey[len(subkey)-1]
 
+	firstSubKey, castSubkey, _ := strings.Cut(subkey[0], QueryCast)
+	if castSubkey != "" {
+		cast := q.qsToStandardSQLDataType(castSubkey)
+		cond["cast"] = cast
+		if cast != "" {
+			subkey[0] = firstSubKey
+			key = strings.ReplaceAll(key, QueryCast+castSubkey, "")
+		}
+	}
+
 	operator := q.qsToOptSQL(lastSubkey)
 	cond["operator"] = operator
 
@@ -557,10 +574,40 @@ func (q *DBQuery) qsToOptSQL(key string) string {
 	return res
 }
 
+// qsToStandardSQLDataType return sql data type from part of query params key
+func (q *DBQuery) qsToStandardSQLDataType(key string) string {
+	opt := map[string]StandardDataType{
+		"int":       {Default: "INT"},
+		"bigint":    {Default: "BIGINT"},
+		"float":     {Default: "FLOAT"},
+		"double":    {Default: "DOUBLE"},
+		"decimal":   {Default: "DECIMAL"},
+		"char":      {Default: "CHAR"},
+		"varchar":   {Default: "VARCHAR"},
+		"text":      {Default: "TEXT"},
+		"date":      {Default: "DATE"},
+		"time":      {Default: "TIME"},
+		"timestamp": {Default: "TIMESTAMP"},
+		"boolean":   {Default: "BOOLEAN"},
+		"binary":    {Default: "BINARY"},
+		"blob":      {Default: "BLOB"},
+		"json":      {Default: "JSON"},
+	}
+	res := ""
+	if dataType, ok := opt[key]; ok {
+		res = dataType.Alternatives[q.DB.Dialector.Name()]
+		if res == "" {
+			return dataType.Default
+		}
+	}
+	return res
+}
+
 // condToWhereSQL convert schema conditions to where method SQL string
 func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 	where := strings.Builder{}
 
+	cast, _ := cond["cast"].(string)
 	column1, _ := cond["column1"].(string)
 	column2, _ := cond["column2"].(string)
 	operator, _ := cond["operator"].(string)
@@ -593,6 +640,8 @@ func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 		}
 		if q.DB.Dialector.Name() == "postgres" && isOperatorLIKE && (!column1isString || isInvalidUUID) {
 			column1 = "CAST(" + column1 + " AS text)"
+		} else if cast != "" {
+			column1 = "CAST(" + column1 + " AS " + cast + ")"
 		}
 		if isCaseInsensitive {
 			column1 = "LOWER(" + column1 + ")"
@@ -635,6 +684,8 @@ func (q *DBQuery) condToWhereSQL(cond map[string]any) (string, any) {
 		//special case for postgresql, func like is only for string
 		if q.DB.Dialector.Name() == "postgres" && isOperatorLIKE && (!column2isString || column2isInvalidUUID) {
 			column2 = "CAST(" + column2 + " AS text)"
+		} else if cast != "" {
+			column2 = "CAST(" + column2 + " AS " + cast + ")"
 		}
 		if isCaseInsensitive {
 			column2 = "LOWER(" + column2 + ")"

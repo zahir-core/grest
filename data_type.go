@@ -902,3 +902,8 @@ func (ms MapSlice) MarshalJSON() ([]byte, error) {
 	buf.Write([]byte{'}'})
 	return buf.Bytes(), nil
 }
+
+type StandardDataType struct {
+	Default      string
+	Alternatives map[string]string
+}
