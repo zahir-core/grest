@@ -176,6 +176,9 @@ func (m *Model) SetFields(p any) {
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		if jsonTag, _, _ := strings.Cut(field.Tag.Get("json"), ","); jsonTag != "" && jsonTag != "-" {
+			if _, exists := m.Fields[jsonTag]; exists {
+				continue
+			}
 			isHide := false
 			isGroup := false
 			dbTag := field.Tag.Get("db")
@@ -341,7 +344,18 @@ func (m *Model) AddRelation(joinType string, tableName any, tableAliasName strin
 	} else {
 		m.Relations = map[string]map[string]any{tableAliasName: relation}
 	}
-	m.RelationOrder = append(m.RelationOrder, tableAliasName)
+	if !contains(m.RelationOrder, tableAliasName) {
+		m.RelationOrder = append(m.RelationOrder, tableAliasName)
+	}
+}
+
+func contains(slice []string, value string) bool {
+	for _, v := range slice {
+		if v == value {
+			return true
+		}
+	}
+	return false
 }
 
 // GetRelations returns the model relations., expected key :

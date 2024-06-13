@@ -1,7 +1,9 @@
 package grest
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"testing"
 )
 
@@ -547,4 +549,171 @@ func expectedSchemaStr() string {
   "tableName": "articles",
   "tableSchema": null
 }`
+}
+
+// TEST CASE FOR ISSUE #30
+func TestModifyModelGetQuerySchema(t *testing.T) {
+	expected, _ := minifyJSON([]byte(expectedSchemaStrModify()))
+	result := ""
+	a := &Book{}
+	a.AddRelation("left", "publishers", "p", []map[string]any{{"column1": "p.id", "operator": "=", "column2": "a.publisher_id"}})
+	resultByte, err := json.MarshalIndent(a.GetSchema(), "", "  ")
+	if err == nil {
+		result, _ = minifyJSON(resultByte)
+	} else {
+		t.Errorf("json.MarshalIndent(a.GetSchema(), \"\", \"  \") [%v]", err)
+	}
+	if result != expected {
+		t.Errorf("Expected:\n%v\nGot:\n%v", expected, result)
+	}
+
+	// called same func twice
+	a.GetSchema()
+	a.GetSchema()
+	resultByte, err = json.MarshalIndent(a.GetSchema(), "", "  ")
+	if err == nil {
+		result, _ = minifyJSON(resultByte)
+	} else {
+		t.Errorf("json.MarshalIndent(a.GetSchema(), \"\", \"  \") [%v]", err)
+	}
+	if result != expected {
+		t.Errorf("Second get a.GetSchema() Err Expected:\n%v\nGot:\n%v", expected, result)
+	}
+	fmt.Printf("expected %v \n\n", result)
+	fmt.Printf("result %v \n\n", result)
+}
+
+func minifyJSON(data []byte) (string, error) {
+	var minifiedData bytes.Buffer
+	err := json.Compact(&minifiedData, data)
+	if err != nil {
+		return "", err
+	}
+	return string(minifiedData.Bytes()), nil
+}
+
+type Book struct {
+	Model
+	ID         NullUUID   `json:"id"           db:"a.id"`
+	Title      NullString `json:"title"        db:"a.title"`
+	AuthorID   NullUUID   `json:"author.id"    db:"a.author_id"`
+	AuthorName NullString `json:"author.name"  db:"u.name"`
+}
+
+func (Book) TableVersion() string {
+	return "22.02.080822"
+}
+
+func (Book) TableName() string {
+	return "books"
+}
+
+func (Book) TableAliasName() string {
+	return "b"
+}
+
+func (m *Book) GetFields() map[string]map[string]any {
+	m.SetFields(m)
+	return m.Fields
+}
+
+func (m *Book) GetRelations() map[string]map[string]any {
+	m.AddRelation("left", "users", "u", []map[string]any{{"column1": "u.id", "operator": "=", "column2": "a.author_id"}})
+	return m.Relations
+}
+
+func (m *Book) GetFilters() []map[string]any {
+	return m.Filters
+}
+
+func (m *Book) GetSorts() []map[string]any {
+	return m.Sorts
+}
+
+func (m *Book) GetSchema() map[string]any {
+	return m.SetSchema(m)
+}
+
+func (m *Book) GetOpenAPISchema() map[string]any {
+	return m.SetOpenAPISchema(m)
+}
+
+func expectedSchemaStrModify() string {
+	return `{
+          "arrayFieldOrder": null,
+          "arrayFields": null,
+          "fieldOrder": [
+            "id",
+            "title",
+            "author.id",
+            "author.name"
+          ],
+          "fields": {
+            "author.id": {
+              "as": "author.id",
+              "db": "a.author_id",
+              "isGroup": false,
+              "isHide": false,
+              "type": "NullUUID"
+            },
+            "author.name": {
+              "as": "author.name",
+              "db": "u.name",
+              "isGroup": false,
+              "isHide": false,
+              "type": "NullString"
+            },
+            "id": {
+              "as": "id",
+              "db": "a.id",
+              "isGroup": false,
+              "isHide": false,
+              "type": "NullUUID"
+            },
+            "title": {
+              "as": "title",
+              "db": "a.title",
+              "isGroup": false,
+              "isHide": false,
+              "type": "NullString"
+            }
+          },
+          "filters": null,
+          "groups": null,
+          "isFlat": false,
+          "relationOrder": [
+            "p",
+            "u"
+          ],
+          "relations": {
+          "p": {
+              "conditions": [
+                {
+                  "column1": "p.id",
+                  "column2": "a.publisher_id",
+                  "operator": "="
+                }
+              ],
+              "tableAliasName": "p",
+              "tableName": "publishers",
+              "type": "left"
+            },
+            "u": {
+              "conditions": [
+                {
+                  "column1": "u.id",
+                  "column2": "a.author_id",
+                  "operator": "="
+                }
+              ],
+              "tableAliasName": "u",
+              "tableName": "users",
+              "type": "left"
+            }
+          },
+          "sorts": null,
+          "tableAliasName": "b",
+          "tableName": "books",
+          "tableSchema": null
+        }`
 }
