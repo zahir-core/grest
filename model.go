@@ -176,9 +176,6 @@ func (m *Model) SetFields(p any) {
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
 		if jsonTag, _, _ := strings.Cut(field.Tag.Get("json"), ","); jsonTag != "" && jsonTag != "-" {
-			if _, exists := m.Fields[jsonTag]; exists {
-				continue
-			}
 			isHide := false
 			isGroup := false
 			dbTag := field.Tag.Get("db")
@@ -257,7 +254,9 @@ func (m *Model) AddField(fieldKey string, fieldOpt map[string]any) {
 	} else {
 		m.Fields = map[string]map[string]any{fieldKey: fieldOpt}
 	}
-	m.FieldOrder = append(m.FieldOrder, fieldKey)
+	if !contains(m.FieldOrder, fieldKey) {
+		m.FieldOrder = append(m.FieldOrder, fieldKey)
+	}
 }
 
 // GetFields returns the model fields.
