@@ -254,7 +254,9 @@ func (m *Model) AddField(fieldKey string, fieldOpt map[string]any) {
 	} else {
 		m.Fields = map[string]map[string]any{fieldKey: fieldOpt}
 	}
-	m.FieldOrder = append(m.FieldOrder, fieldKey)
+	if !contains(m.FieldOrder, fieldKey) {
+		m.FieldOrder = append(m.FieldOrder, fieldKey)
+	}
 }
 
 // GetFields returns the model fields.
@@ -341,7 +343,18 @@ func (m *Model) AddRelation(joinType string, tableName any, tableAliasName strin
 	} else {
 		m.Relations = map[string]map[string]any{tableAliasName: relation}
 	}
-	m.RelationOrder = append(m.RelationOrder, tableAliasName)
+	if !contains(m.RelationOrder, tableAliasName) {
+		m.RelationOrder = append(m.RelationOrder, tableAliasName)
+	}
+}
+
+func contains(slice []string, value string) bool {
+	for _, v := range slice {
+		if v == value {
+			return true
+		}
+	}
+	return false
 }
 
 // GetRelations returns the model relations., expected key :
