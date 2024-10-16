@@ -431,14 +431,17 @@ func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any, query url.Values)
 	}
 
 	// filter from query $search
-	qs := strings.Split(query.Get(QuerySearch), "=")
-	if len(qs) > 1 {
+	searchKey, searchVal, found := strings.Cut(query.Get(QuerySearch), ":")
+	if !found {
+		searchKey, searchVal, found = strings.Cut(query.Get(QuerySearch), "=")
+	}
+	if found {
 		valSearch := strings.Builder{}
-		for i, s := range strings.Split(qs[0], ",") {
+		for i, s := range strings.Split(searchKey, ",") {
 			if i == 0 {
-				valSearch.WriteString(s + "." + QueryOptInsensitiveLike + "=" + qs[1])
+				valSearch.WriteString(s + "." + QueryOptInsensitiveLike + "=" + searchVal)
 			} else {
-				valSearch.WriteString(QueryOrDelimiter + s + "." + QueryOptInsensitiveLike + "=" + qs[1])
+				valSearch.WriteString(QueryOrDelimiter + s + "." + QueryOptInsensitiveLike + "=" + searchVal)
 			}
 		}
 		if valSearch.Len() > 0 {
@@ -465,18 +468,19 @@ func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any, query url.Values)
 			orDB := q.DB.Session(&gorm.Session{})
 			orQueries := strings.Split(ov, QueryOrDelimiter)
 			for _, orQuery := range orQueries {
-				orQ := strings.Split(orQuery, "=")
-				val := ""
-				if len(orQ) > 0 {
-					val = orQ[1]
+				orQ, val, found := strings.Cut(orQuery, ":")
+				if !found {
+					orQ, val, found = strings.Cut(orQuery, "=")
 				}
-				cond := q.qsToCond(orQ[0], val, fields, arrayFields)
-				if cond["column1"] != nil {
-					whereSQL, arg := q.condToWhereSQL(cond)
-					if strings.Contains(whereSQL, "?") {
-						orDB = orDB.Or(whereSQL, arg)
-					} else {
-						orDB = orDB.Or(whereSQL)
+				if found {
+					cond := q.qsToCond(orQ, val, fields, arrayFields)
+					if cond["column1"] != nil {
+						whereSQL, arg := q.condToWhereSQL(cond)
+						if strings.Contains(whereSQL, "?") {
+							orDB = orDB.Or(whereSQL, arg)
+						} else {
+							orDB = orDB.Or(whereSQL)
+						}
 					}
 				}
 			}
