@@ -59,12 +59,12 @@ var (
 	// it combined by another query params
 
 	// or query params setting
-	// ex: /contacts?$or=gender=female||age.$lt=10&$or=is_salesman=true||is_employee=true  => sql: select * from contacts where (gender = 'female' or age < 10) and (is_salesman = '1' or is_employee = '1')
+	// ex: /contacts?$or=gender=female|age.$lt=10&$or=is_salesman=true|is_employee=true  => sql: select * from contacts where (gender = 'female' or age < 10) and (is_salesman = '1' or is_employee = '1')
 	QueryOr          = "$or"
-	QueryOrDelimiter = "||"
+	QueryOrDelimiter = "|"
 
 	// search query params setting
-	// ex: /contacts?$search=code,name=john     => sql: select * from contacts where (lower(code) = lower('john') or lower(name) = lower('john'))
+	// ex: /contacts?$search=code,name:john     => sql: select * from contacts where (lower(code) = lower('john') or lower(name) = lower('john'))
 	QuerySearch = "$search"
 
 	// field query params setting
@@ -466,7 +466,15 @@ func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any, query url.Values)
 	if isOrValExists {
 		for _, ov := range orVal {
 			orDB := q.DB.Session(&gorm.Session{})
-			orQueries := strings.Split(ov, QueryOrDelimiter)
+
+			orQueries := []string{}
+			if strings.Contains(ov, "||") {
+				// backward compabililty
+				orQueries = strings.Split(ov, "||")
+			} else {
+				orQueries = strings.Split(ov, QueryOrDelimiter)
+			}
+
 			for _, orQuery := range orQueries {
 				orQ, val, found := strings.Cut(orQuery, ":")
 				if !found {
