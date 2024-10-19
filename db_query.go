@@ -59,12 +59,12 @@ var (
 	// it combined by another query params
 
 	// or query params setting
-	// ex: /contacts?$or=gender=female||age.$lt=10&$or=is_salesman=true||is_employee=true  => sql: select * from contacts where (gender = 'female' or age < 10) and (is_salesman = '1' or is_employee = '1')
+	// ex: /contacts?$or=gender:female|age.$lt:10&$or=is_salesman:true|is_employee:true  => sql: select * from contacts where (gender = 'female' or age < 10) and (is_salesman = '1' or is_employee = '1')
 	QueryOr          = "$or"
-	QueryOrDelimiter = "||"
+	QueryOrDelimiter = "|"
 
 	// search query params setting
-	// ex: /contacts?$search=code,name=john     => sql: select * from contacts where (lower(code) = lower('john') or lower(name) = lower('john'))
+	// ex: /contacts?$search=code,name:john     => sql: select * from contacts where (lower(code) = lower('john') or lower(name) = lower('john'))
 	QuerySearch = "$search"
 
 	// field query params setting
@@ -431,14 +431,17 @@ func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any, query url.Values)
 	}
 
 	// filter from query $search
-	qs := strings.Split(query.Get(QuerySearch), "=")
-	if len(qs) > 1 {
+	searchKey, searchVal, found := strings.Cut(query.Get(QuerySearch), ":")
+	if !found {
+		searchKey, searchVal, found = strings.Cut(query.Get(QuerySearch), "=")
+	}
+	if found {
 		valSearch := strings.Builder{}
-		for i, s := range strings.Split(qs[0], ",") {
+		for i, s := range strings.Split(searchKey, ",") {
 			if i == 0 {
-				valSearch.WriteString(s + "." + QueryOptInsensitiveLike + "=" + qs[1])
+				valSearch.WriteString(s + "." + QueryOptInsensitiveLike + "=" + searchVal)
 			} else {
-				valSearch.WriteString(QueryOrDelimiter + s + "." + QueryOptInsensitiveLike + "=" + qs[1])
+				valSearch.WriteString(QueryOrDelimiter + s + "." + QueryOptInsensitiveLike + "=" + searchVal)
 			}
 		}
 		if valSearch.Len() > 0 {
@@ -463,20 +466,29 @@ func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any, query url.Values)
 	if isOrValExists {
 		for _, ov := range orVal {
 			orDB := q.DB.Session(&gorm.Session{})
-			orQueries := strings.Split(ov, QueryOrDelimiter)
+
+			orQueries := []string{}
+			if strings.Contains(ov, "||") {
+				// backward compabililty
+				orQueries = strings.Split(ov, "||")
+			} else {
+				orQueries = strings.Split(ov, QueryOrDelimiter)
+			}
+
 			for _, orQuery := range orQueries {
-				orQ := strings.Split(orQuery, "=")
-				val := ""
-				if len(orQ) > 0 {
-					val = orQ[1]
+				orQ, val, found := strings.Cut(orQuery, ":")
+				if !found {
+					orQ, val, found = strings.Cut(orQuery, "=")
 				}
-				cond := q.qsToCond(orQ[0], val, fields, arrayFields)
-				if cond["column1"] != nil {
-					whereSQL, arg := q.condToWhereSQL(cond)
-					if strings.Contains(whereSQL, "?") {
-						orDB = orDB.Or(whereSQL, arg)
-					} else {
-						orDB = orDB.Or(whereSQL)
+				if found {
+					cond := q.qsToCond(orQ, val, fields, arrayFields)
+					if cond["column1"] != nil {
+						whereSQL, arg := q.condToWhereSQL(cond)
+						if strings.Contains(whereSQL, "?") {
+							orDB = orDB.Or(whereSQL, arg)
+						} else {
+							orDB = orDB.Or(whereSQL)
+						}
 					}
 				}
 			}
