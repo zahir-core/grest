@@ -59,7 +59,7 @@ var (
 	// it combined by another query params
 
 	// or query params setting
-	// ex: /contacts?$or=gender=female|age.$lt=10&$or=is_salesman=true|is_employee=true  => sql: select * from contacts where (gender = 'female' or age < 10) and (is_salesman = '1' or is_employee = '1')
+	// ex: /contacts?$or=gender:female|age.$lt:10&$or=is_salesman:true|is_employee:true  => sql: select * from contacts where (gender = 'female' or age < 10) and (is_salesman = '1' or is_employee = '1')
 	QueryOr          = "$or"
 	QueryOrDelimiter = "|"
 
