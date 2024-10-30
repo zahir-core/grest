@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -17,6 +18,7 @@ type Cache struct {
 	RedisClient *redis.Client
 	IsUseRedis  bool
 	inMemCache  map[string]string
+	mu          sync.RWMutex
 }
 
 // Configure initializes the Cache by setting up the Redis client and context.
@@ -48,6 +50,8 @@ func (c *Cache) Get(key string, val any) error {
 			return NewError(http.StatusInternalServerError, err.Error())
 		}
 	} else {
+		c.mu.RLock()
+		defer c.mu.RUnlock()
 		value, ok := c.inMemCache[key]
 		if !ok {
 			return NewError(http.StatusInternalServerError, "Cache with key "+key+" is not found")
@@ -76,6 +80,8 @@ func (c *Cache) Set(key string, val any, e ...time.Duration) error {
 			return NewError(http.StatusInternalServerError, err.Error())
 		}
 	} else {
+		c.mu.Lock()
+		defer c.mu.Unlock()
 		if c.inMemCache != nil {
 			c.inMemCache[key] = string(value)
 		} else {
@@ -93,6 +99,8 @@ func (c *Cache) Delete(key string) error {
 			return NewError(http.StatusInternalServerError, err.Error())
 		}
 	} else {
+		c.mu.Lock()
+		defer c.mu.Unlock()
 		_, ok := c.inMemCache[key]
 		if ok {
 			delete(c.inMemCache, key)
@@ -120,6 +128,8 @@ func (c *Cache) DeleteWithPrefix(prefix string) error {
 			}
 		}
 	} else {
+		c.mu.Lock()
+		defer c.mu.Unlock()
 		for k := range c.inMemCache {
 			if strings.HasPrefix(k, prefix+"") {
 				delete(c.inMemCache, k)
@@ -145,6 +155,8 @@ func (c *Cache) Clear() error {
 			return NewError(http.StatusInternalServerError, err.Error())
 		}
 	} else {
+		c.mu.Lock()
+		defer c.mu.Unlock()
 		c.inMemCache = map[string]string{}
 	}
 	return nil

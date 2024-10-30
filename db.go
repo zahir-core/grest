@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"sync"
 
 	"gopkg.in/DATA-DOG/go-sqlmock.v1"
 	"gorm.io/driver/postgres"
@@ -15,6 +16,7 @@ type DB struct {
 	Conns      map[string]*gorm.DB
 	Migrations map[string]map[string]Table
 	Seeders    map[string]map[string]any
+	mu         sync.RWMutex
 }
 
 // Table is an interface for database table models.
@@ -62,6 +64,8 @@ func NewMockDB() (*gorm.DB, sqlmock.Sqlmock, error) {
 
 // RegisterConn registers a database connection.
 func (db *DB) RegisterConn(connName string, conn *gorm.DB) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
 	if db.Conns != nil {
 		db.Conns[connName] = conn
 	} else {
@@ -71,6 +75,8 @@ func (db *DB) RegisterConn(connName string, conn *gorm.DB) {
 
 // Conn retrieves a registered database connection.
 func (db *DB) Conn(connName string) (*gorm.DB, error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
 	conn, ok := db.Conns[connName]
 	if ok {
 		return conn, nil
@@ -80,6 +86,8 @@ func (db *DB) Conn(connName string) (*gorm.DB, error) {
 
 // CloseConn closes a registered database connection.
 func (db *DB) CloseConn(connName string) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
 	conn, ok := db.Conns[connName]
 	if ok {
 		dbSQL, err := conn.DB()
@@ -94,6 +102,8 @@ func (db *DB) CloseConn(connName string) error {
 
 // Close closes all registered database connections.
 func (db *DB) Close() {
+	db.mu.Lock()
+	defer db.mu.Unlock()
 	for _, conn := range db.Conns {
 		dbSQL, err := conn.DB()
 		if err == nil {
