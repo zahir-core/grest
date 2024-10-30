@@ -115,8 +115,6 @@ func (db *DB) Close() {
 
 // RegisterTable registers a table for migration.
 func (db *DB) RegisterTable(connName string, t Table) error {
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	m, ok := db.Migrations[connName]
 	if ok {
 		m[t.TableName()] = t
@@ -199,8 +197,6 @@ func (db *DB) MigrateTable(tx *gorm.DB, connName string, mTable MigrationTable) 
 
 // RegisterSeeder registers a seeder for a specific connection.
 func (db *DB) RegisterSeeder(connName, seederKey string, seederHandler any) error {
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	sh, ok := db.Seeders[connName]
 	if ok {
 		sh[seederKey] = seederHandler
