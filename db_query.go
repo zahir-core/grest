@@ -435,7 +435,7 @@ func (q *DBQuery) SetWhere(db *gorm.DB, schema map[string]any, query url.Values)
 	if !found {
 		searchKey, searchVal, found = strings.Cut(query.Get(QuerySearch), "=")
 	}
-	if found {
+	if found && searchVal != "" {
 		valSearch := strings.Builder{}
 		for i, s := range strings.Split(searchKey, ",") {
 			if i == 0 {
