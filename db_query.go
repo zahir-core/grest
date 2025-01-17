@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+	"golang.org/x/net/html"
 	"gorm.io/gorm"
 )
 
@@ -167,6 +168,7 @@ func (q *DBQuery) fixDataType(schema map[string]any, rows []map[string]any) []ma
 	isNeedFiDataType := false
 	boolKeys := []string{}
 	jsonKeys := []string{}
+	ucstringKeys := []string{}
 	fields, _ := schema["fields"].(map[string]map[string]any)
 	for k, f := range fields {
 		dataType, _ := f["type"].(string)
@@ -177,6 +179,9 @@ func (q *DBQuery) fixDataType(schema map[string]any, rows []map[string]any) []ma
 		} else if strings.Contains(dataType, "json") {
 			isNeedFiDataType = true
 			jsonKeys = append(jsonKeys, k)
+		} else if strings.Contains(dataType, "ucstring") {
+			isNeedFiDataType = true
+			ucstringKeys = append(ucstringKeys, k)
 		}
 	}
 	if isNeedFiDataType {
@@ -198,6 +203,11 @@ func (q *DBQuery) fixDataType(schema map[string]any, rows []map[string]any) []ma
 						if err == nil {
 							rows[i][k] = v
 						}
+					}
+				}
+				for _, uk := range ucstringKeys {
+					if k == uk {
+						rows[i][k] = html.UnescapeString(v.(string))
 					}
 				}
 			}
