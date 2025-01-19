@@ -908,7 +908,7 @@ type StandardDataType struct {
 	Alternatives map[string]string
 }
 
-// NullUCstring wraps a string value and ensures Unicode characters are properly handled.
-type NullUCstring struct {
+// NullUnicodeString wraps a string value and ensures Unicode characters are properly handled.
+type NullUnicodeString struct {
 	NullString
 }

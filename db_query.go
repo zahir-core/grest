@@ -165,7 +165,7 @@ func (q *DBQuery) Find(schema map[string]any, qry ...url.Values) ([]map[string]a
 
 // fixDataType from db
 func (q *DBQuery) fixDataType(schema map[string]any, rows []map[string]any) []map[string]any {
-	isNeedFiDataType := false
+	isNeedFixDataType := false
 	boolKeys := []string{}
 	jsonKeys := []string{}
 	ucstringKeys := []string{}
@@ -174,17 +174,17 @@ func (q *DBQuery) fixDataType(schema map[string]any, rows []map[string]any) []ma
 		dataType, _ := f["type"].(string)
 		dataType = strings.ToLower(dataType)
 		if strings.Contains(dataType, "bool") {
-			isNeedFiDataType = true
+			isNeedFixDataType = true
 			boolKeys = append(boolKeys, k)
 		} else if strings.Contains(dataType, "json") {
-			isNeedFiDataType = true
+			isNeedFixDataType = true
 			jsonKeys = append(jsonKeys, k)
-		} else if strings.Contains(dataType, "ucstring") {
-			isNeedFiDataType = true
+		} else if strings.Contains(dataType, "nullunicodestring") {
+			isNeedFixDataType = true
 			ucstringKeys = append(ucstringKeys, k)
 		}
 	}
-	if isNeedFiDataType {
+	if isNeedFixDataType {
 		for i, row := range rows {
 			for k, v := range row {
 				for _, bk := range boolKeys {
