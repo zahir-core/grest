@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+	"golang.org/x/net/html"
 	"gorm.io/gorm"
 )
 
@@ -164,22 +165,26 @@ func (q *DBQuery) Find(schema map[string]any, qry ...url.Values) ([]map[string]a
 
 // fixDataType from db
 func (q *DBQuery) fixDataType(schema map[string]any, rows []map[string]any) []map[string]any {
-	isNeedFiDataType := false
+	isNeedFixDataType := false
 	boolKeys := []string{}
 	jsonKeys := []string{}
+	ucstringKeys := []string{}
 	fields, _ := schema["fields"].(map[string]map[string]any)
 	for k, f := range fields {
 		dataType, _ := f["type"].(string)
 		dataType = strings.ToLower(dataType)
 		if strings.Contains(dataType, "bool") {
-			isNeedFiDataType = true
+			isNeedFixDataType = true
 			boolKeys = append(boolKeys, k)
 		} else if strings.Contains(dataType, "json") {
-			isNeedFiDataType = true
+			isNeedFixDataType = true
 			jsonKeys = append(jsonKeys, k)
+		} else if strings.Contains(dataType, "nullunicodestring") {
+			isNeedFixDataType = true
+			ucstringKeys = append(ucstringKeys, k)
 		}
 	}
-	if isNeedFiDataType {
+	if isNeedFixDataType {
 		for i, row := range rows {
 			for k, v := range row {
 				for _, bk := range boolKeys {
@@ -198,6 +203,11 @@ func (q *DBQuery) fixDataType(schema map[string]any, rows []map[string]any) []ma
 						if err == nil {
 							rows[i][k] = v
 						}
+					}
+				}
+				for _, uk := range ucstringKeys {
+					if k == uk {
+						rows[i][k] = html.UnescapeString(v.(string))
 					}
 				}
 			}
