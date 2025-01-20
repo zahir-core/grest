@@ -179,7 +179,7 @@ func (q *DBQuery) fixDataType(schema map[string]any, rows []map[string]any) []ma
 		} else if strings.Contains(dataType, "json") {
 			isNeedFixDataType = true
 			jsonKeys = append(jsonKeys, k)
-		} else if strings.Contains(dataType, "nullunicodestring") {
+		} else if strings.Contains(dataType, "unicodestring") {
 			isNeedFixDataType = true
 			ucstringKeys = append(ucstringKeys, k)
 		}
