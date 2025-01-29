@@ -207,7 +207,7 @@ func (q *DBQuery) fixDataType(schema map[string]any, rows []map[string]any) []ma
 				}
 				for _, uk := range ucstringKeys {
 					if k == uk {
-						rows[i][k] = html.UnescapeString(v.(string))
+						rows[i][k] = html.UnescapeString(fmt.Sprintf("%v", v))
 					}
 				}
 			}
