@@ -179,7 +179,7 @@ func (q *DBQuery) fixDataType(schema map[string]any, rows []map[string]any) []ma
 		} else if strings.Contains(dataType, "json") {
 			isNeedFixDataType = true
 			jsonKeys = append(jsonKeys, k)
-		} else if strings.Contains(dataType, "nullunicodestring") {
+		} else if strings.Contains(dataType, "unicodestring") {
 			isNeedFixDataType = true
 			ucstringKeys = append(ucstringKeys, k)
 		}
@@ -207,7 +207,7 @@ func (q *DBQuery) fixDataType(schema map[string]any, rows []map[string]any) []ma
 				}
 				for _, uk := range ucstringKeys {
 					if k == uk {
-						rows[i][k] = html.UnescapeString(v.(string))
+						rows[i][k] = html.UnescapeString(fmt.Sprintf("%v", v))
 					}
 				}
 			}
