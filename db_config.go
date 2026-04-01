@@ -7,6 +7,18 @@ import (
 	"time"
 )
 
+// SSHConfig represents the configuration for an SSH connection.
+type SSHConfig struct {
+	Enable     bool
+	Host       string
+	Port       int
+	User       string
+	KeyPath    string
+	LocalPort  int
+	RemoteHost string
+	RemotePort int
+}
+
 // DBConfig represents the configuration for a database connection.
 type DBConfig struct {
 	Driver   string
@@ -22,6 +34,8 @@ type DBConfig struct {
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 	SslMode      string
+
+	SSH SSHConfig
 
 	OtherParams map[string]string
 }
